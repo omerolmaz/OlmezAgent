@@ -12,6 +12,7 @@
           "Agent.Modules": "1.0.0",
           "Agent.Transport": "1.0.0",
           "Microsoft.Extensions.Hosting": "8.0.1",
+          "Microsoft.Extensions.Hosting.WindowsServices": "8.0.1",
           "Microsoft.NET.ILLink.Tasks": "8.0.21",
           "Serilog": "4.1.0",
           "Serilog.Enrichers.Environment": "3.0.1",
@@ -274,6 +275,19 @@
         "runtime": {
           "lib/net8.0/Microsoft.Extensions.Hosting.Abstractions.dll": {
             "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1024.46610"
+          }
+        }
+      },
+      "Microsoft.Extensions.Hosting.WindowsServices/8.0.1": {
+        "dependencies": {
+          "Microsoft.Extensions.Hosting": "8.0.1",
+          "Microsoft.Extensions.Logging.EventLog": "8.0.1",
+          "System.ServiceProcess.ServiceController": "8.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.Hosting.WindowsServices.dll": {
+            "assemblyVersion": "8.0.0.1",
             "fileVersion": "8.0.1024.46610"
           }
         }
@@ -554,22 +568,22 @@
           }
         }
       },
-      "System.ServiceProcess.ServiceController/8.0.0": {
+      "System.ServiceProcess.ServiceController/8.0.1": {
         "dependencies": {
           "System.Diagnostics.EventLog": "8.0.1"
         },
         "runtime": {
           "lib/net8.0/System.ServiceProcess.ServiceController.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
+            "assemblyVersion": "8.0.0.1",
+            "fileVersion": "8.0.1024.46610"
           }
         },
         "runtimeTargets": {
           "runtimes/win/lib/net8.0/System.ServiceProcess.ServiceController.dll": {
             "rid": "win",
             "assetType": "runtime",
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
+            "assemblyVersion": "8.0.0.1",
+            "fileVersion": "8.0.1024.46610"
           }
         }
       },
@@ -591,7 +605,7 @@
           "Agent.Scripting": "1.0.0",
           "System.Drawing.Common": "8.0.0",
           "System.Management": "8.0.0",
-          "System.ServiceProcess.ServiceController": "8.0.0",
+          "System.ServiceProcess.ServiceController": "8.0.1",
           "System.Windows.Extensions": "8.0.0"
         },
         "runtime": {
@@ -772,6 +786,13 @@
       "path": "microsoft.extensions.hosting.abstractions/8.0.1",
       "hashPath": "microsoft.extensions.hosting.abstractions.8.0.1.nupkg.sha512"
     },
+    "Microsoft.Extensions.Hosting.WindowsServices/8.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5p0tjMDpr8tgzjBdu9Rzk8lUU/PaR1D3Us52XZypl85QTxfAjthR1+YywB3GsGc+FOZWdpuEDsV8kZisEC2Hng==",
+      "path": "microsoft.extensions.hosting.windowsservices/8.0.1",
+      "hashPath": "microsoft.extensions.hosting.windowsservices.8.0.1.nupkg.sha512"
+    },
     "Microsoft.Extensions.Logging/8.0.1": {
       "type": "package",
       "serviceable": true,
@@ -947,12 +968,12 @@
       "path": "system.management/8.0.0",
       "hashPath": "system.management.8.0.0.nupkg.sha512"
     },
-    "System.ServiceProcess.ServiceController/8.0.0": {
+    "System.ServiceProcess.ServiceController/8.0.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-jtYVG3bpw2n/NvNnP2g/JLri0D4UtfusTvLeH6cZPNAEjJXJVGspS3wLgVvjNbm+wjaYkFgsXejMTocV1T5DIQ==",
-      "path": "system.serviceprocess.servicecontroller/8.0.0",
-      "hashPath": "system.serviceprocess.servicecontroller.8.0.0.nupkg.sha512"
+      "sha512": "sha512-02I0BXo1kmMBgw03E8Hu4K6nTqur4wpQdcDZrndczPzY2fEoGvlinE35AWbyzLZ2h2IksEZ6an4tVt3hi9j1oA==",
+      "path": "system.serviceprocess.servicecontroller/8.0.1",
+      "hashPath": "system.serviceprocess.servicecontroller.8.0.1.nupkg.sha512"
     },
     "System.Windows.Extensions/8.0.0": {
       "type": "package",

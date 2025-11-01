@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "TYrtuyBeyLA=",
+  "dgSpecHash": "HEKeWQsCzhs=",
   "success": true,
   "projectFilePath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\AgentHost\\AgentHost.csproj",
   "expectedPackageFiles": [
@@ -24,6 +24,7 @@
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.filesystemglobbing\\8.0.0\\microsoft.extensions.filesystemglobbing.8.0.0.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.hosting\\8.0.1\\microsoft.extensions.hosting.8.0.1.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.hosting.abstractions\\8.0.1\\microsoft.extensions.hosting.abstractions.8.0.1.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.hosting.windowsservices\\8.0.1\\microsoft.extensions.hosting.windowsservices.8.0.1.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging\\8.0.1\\microsoft.extensions.logging.8.0.1.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.2\\microsoft.extensions.logging.abstractions.8.0.2.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging.configuration\\8.0.1\\microsoft.extensions.logging.configuration.8.0.1.nupkg.sha512",
@@ -49,7 +50,7 @@
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.diagnostics.eventlog\\8.0.1\\system.diagnostics.eventlog.8.0.1.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.drawing.common\\8.0.0\\system.drawing.common.8.0.0.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.management\\8.0.0\\system.management.8.0.0.nupkg.sha512",
-    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.serviceprocess.servicecontroller\\8.0.0\\system.serviceprocess.servicecontroller.8.0.0.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.serviceprocess.servicecontroller\\8.0.1\\system.serviceprocess.servicecontroller.8.0.1.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.windows.extensions\\8.0.0\\system.windows.extensions.8.0.0.nupkg.sha512",
     "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.netcore.app.crossgen2.win-x64\\8.0.21\\microsoft.netcore.app.crossgen2.win-x64.8.0.21.nupkg.sha512"
   ],

@@ -71,3 +71,4 @@ C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Ag
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\AgentHost\obj\Release\net8.0-windows\olmez.pdb
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\AgentHost\obj\Release\net8.0-windows\AgentHost.genruntimeconfig.cache
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\AgentHost\obj\Release\net8.0-windows\ref\olmez.dll
+C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\AgentHost\bin\Release\net8.0-windows\Microsoft.Extensions.Hosting.WindowsServices.dll

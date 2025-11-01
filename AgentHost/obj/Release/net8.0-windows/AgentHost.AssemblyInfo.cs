@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © 2025 olmez")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("olmez - Modern Remote Management Agent")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("2.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.0.0+ff61bfa7cddde55a9377b2ebfc7fd59fd7925f21")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.0.0+75515ac24a042a0704a660b415e13cd1faf2f9b8")]
 [assembly: System.Reflection.AssemblyProductAttribute("olmez Agent")]
 [assembly: System.Reflection.AssemblyTitleAttribute("olmez")]
 [assembly: System.Reflection.AssemblyVersionAttribute("2.0.0.0")]

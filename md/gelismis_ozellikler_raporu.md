@@ -300,6 +300,84 @@ sc config olmezAgent start=demand    # Manuel başlatma
 - Start Type: Automatic (Manuel olarak değiştirilebilir)
 - Binary Path: `olmez.exe`
 
+### 13. Connection Details & Runtime Info ✅
+**Dosya:** `Agent.Abstractions/AgentContext.cs`, `AgentRuntimeOptions.cs`
+
+**MeshCentral "Connection Details" Dialog Benzeri Özellikler:**
+
+**Taşınan Bilgiler:**
+- **Status** - Bağlantı durumu (Connected, Disconnected, Connecting, Reconnecting, Error)
+- **Agent Version** - Yeni sürüm bilgisi (örn: 2.0.0)
+- **Server URL** - Sunucu adresi (örn: wss://localhost:444/agent.ashx)
+- **Server ID** - Sunucu tanımlayıcısı (SHA-256 hash)
+- **Group Name** - Grup adı (örn: "Sitetelekom")
+- **Group ID** - Grup tanımlayıcısı (Mesh ID)
+- **OS Name** - İşletim sistemi adı (örn: "DESKTOP-IRAJC0C")
+- **Auto Proxy** - Otomatik proxy tespiti durumu
+- **Start Time** - Agent başlatılma zamanı
+- **Uptime** - Çalışma süresi
+
+**Yeni Komut:**
+```json
+// Connection Details al
+{
+  "action": "connectiondetails",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {}
+}
+```
+
+**Yanıt:**
+```json
+{
+  "action": "connectiondetails",
+  "timestampUtc": "2025-11-01T12:00:00.000Z",
+  "status": "Connected",
+  "agentVersion": "2.0.0",
+  "serverUrl": "wss://localhost:444/agent.ashx",
+  "serverId": "1402BEF6CD8A16D1E7B9DA3CA9D0D15245EF54B...",
+  "groupName": "Sitetelekom",
+  "groupId": "4720C05BC56F8074E68A3E099A71D0F4ACC557ED28",
+  "osName": "DESKTOP-IRAJC0C",
+  "autoProxy": false,
+  "startTime": "2025-03-06 21:44:07 +0000",
+  "uptime": "00.02:15:33"
+}
+```
+
+**AgentRuntimeOptions - Yeni Özellikler:**
+```json
+{
+  "Agent": {
+    "ServerEndpoint": "wss://localhost:444/agent.ashx",
+    "GroupName": "Sitetelekom",
+    "GroupId": "4720C05BC56F8074E68A3E099A71D0F4ACC557ED28",
+    "OSName": "DESKTOP-IRAJC0C",
+    "AgentDisplayName": "olmez Agent",
+    "AgentVersion": "2.0.0",
+    "AutoProxy": false,
+    "ProxyServer": null,
+    "ReconnectInterval": "00:00:05",
+    "MaxReconnectInterval": "00:05:00"
+  }
+}
+```
+
+**ConnectionStatus Enum:**
+- `Disconnected` - Bağlantı yok
+- `Connecting` - Bağlanıyor
+- `Connected` - Bağlı
+- `Reconnecting` - Yeniden bağlanıyor
+- `Error` - Hata durumu
+
+**CoreDiagnosticsModule Komutları Genişletildi:**
+- `ping` - Basit ping/pong testi
+- `status` - Bağlantı durumu ve uptime
+- `agentinfo` - Detaylı agent bilgileri
+- `versions` - Framework ve CLR versiyonları
+- `connectiondetails` - MeshCentral benzeri bağlantı detayları
+
 ## Modül Kayıt Durumu
 `Agent.Modules/ServiceCollectionExtensions.cs` dosyasında tüm modüller kayıtlı:
 
@@ -335,7 +413,7 @@ services.AddSingleton<IAgentModule, JavaScriptBridgeModule>();
 ```
 
 **Toplam Modül Sayısı:** 14 modül
-**Toplam Komut Sayısı:** 70+ komut
+**Toplam Komut Sayısı:** 75+ komut (connectiondetails eklendi)
 
 **Eklenen Paketler (Windows Service):**
 - `Microsoft.Extensions.Hosting.WindowsServices` (8.0.1)
