@@ -233,13 +233,24 @@ dotnet test
 
 ## Lisans
 
-Copyright © 2025 olmez
+**Dual License Model: Community + Enterprise**
 
-## Katkıda Bulunma
+### Community Edition (Ücretsiz)
+- ✅ Test ve geliştirme
+- ✅ Kişisel kullanım
+- ✅ Eğitim amaçlı
+- ✅ 50 cihaza kadar
+- ❌ Ticari satış yasak
+- ❌ SaaS hizmeti yasak
 
-Pull request'ler kabul edilir. Büyük değişiklikler için lütfen önce bir issue açın.
+### Enterprise Edition (Ücretli)
+- ✅ Sınırsız cihaz
+- ✅ Gelişmiş özellikler
+- ✅ Ticari kullanım
+- ✅ Öncelikli destek
+- ✅ SLA garantisi
 
-## Destek
+**Detaylar:** [LICENSE.md](LICENSE.md)  
+**İletişim:** omer.olmez@sitetelekom.com.tr
 
-- GitHub Issues: https://github.com/omerolmaz/OlmezAgent/issues
-- Email: (contact info)
+Copyright © 2025 Ömer Ölmez. All rights reserved.
