@@ -1,4 +1,4 @@
-
+﻿
 using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
@@ -136,6 +136,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     new JsonObject
@@ -159,6 +160,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
                 await writeSession.SendInputAsync(input).ConfigureAwait(false);
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     new JsonObject
@@ -178,6 +180,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
                 var output = readSession.ReadOutput();
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     new JsonObject
@@ -195,6 +198,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     new JsonObject
@@ -262,6 +266,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -292,6 +297,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -329,6 +335,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -394,6 +401,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -455,6 +463,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -489,6 +498,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -668,6 +678,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -711,6 +722,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -765,6 +777,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -806,6 +819,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -844,6 +858,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -910,6 +925,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -947,6 +963,7 @@ public sealed class RemoteOperationsModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,

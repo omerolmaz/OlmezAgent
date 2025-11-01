@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -61,6 +61,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetCompleteSecurityStatus).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             status)).ConfigureAwait(false);
@@ -87,6 +88,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetAntivirusInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["antivirus"] = status })).ConfigureAwait(false);
@@ -140,6 +142,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetFirewallInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["firewall"] = status })).ConfigureAwait(false);
@@ -233,6 +236,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetDefenderInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["defender"] = status })).ConfigureAwait(false);
@@ -295,6 +299,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetUacInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["uac"] = status })).ConfigureAwait(false);
@@ -346,6 +351,7 @@ public sealed class SecurityMonitoringModule : AgentModuleBase
         var status = await Task.Run(GetEncryptionInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["encryption"] = status })).ConfigureAwait(false);

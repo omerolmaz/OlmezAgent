@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -91,6 +91,7 @@ public sealed class MaintenanceModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -111,6 +112,7 @@ public sealed class MaintenanceModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -185,6 +187,7 @@ del ""%~f0""
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -201,6 +204,7 @@ del ""%~f0""
             payload["error"] = ex.Message;
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -238,6 +242,7 @@ del ""%~f0""
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -249,6 +254,7 @@ del ""%~f0""
             payload["error"] = ex.Message;
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -296,6 +302,7 @@ del ""%~f0""
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -310,6 +317,7 @@ del ""%~f0""
             payload["error"] = ex.Message;
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,

@@ -44,6 +44,7 @@ public abstract class AgentModuleBase : IAgentModule
 
         var result = new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,

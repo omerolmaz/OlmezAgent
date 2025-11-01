@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -101,6 +101,7 @@ public sealed class DesktopModule : AgentModuleBase
         var bounds = Screen.PrimaryScreen.Bounds;
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -126,6 +127,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -149,6 +151,7 @@ public sealed class DesktopModule : AgentModuleBase
             var frameData = session.CaptureFrame();
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject
@@ -180,6 +183,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -216,6 +220,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["ack"] = true, ["button"] = button })).ConfigureAwait(false);
@@ -238,6 +243,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["ack"] = true })).ConfigureAwait(false);
@@ -260,6 +266,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["ack"] = true })).ConfigureAwait(false);
@@ -288,6 +295,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["ack"] = true, ["key"] = keyCode })).ConfigureAwait(false);

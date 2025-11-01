@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -86,6 +86,7 @@ public sealed class PrivacyModule : AgentModuleBase
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject
@@ -120,6 +121,7 @@ public sealed class PrivacyModule : AgentModuleBase
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject { ["hidden"] = true })).ConfigureAwait(false);

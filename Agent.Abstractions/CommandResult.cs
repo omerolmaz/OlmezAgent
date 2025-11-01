@@ -5,6 +5,7 @@ namespace Agent.Abstractions;
 
 public sealed record CommandResult(
     string Action,
+    string CommandId,
     string? NodeId,
     string? SessionId,
     JsonObject Payload,

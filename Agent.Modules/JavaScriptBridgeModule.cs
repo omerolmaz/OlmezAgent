@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Agent.Scripting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -53,6 +53,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
                 _runtime.ReloadDefaultScript();
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     BuildHandlerPayload(null, includeScripts: true))).ConfigureAwait(false);
@@ -60,6 +61,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
             case "scriptlist":
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     BuildHandlerPayload(null, includeScripts: true))).ConfigureAwait(false);
@@ -104,6 +106,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
                 Logger.LogError(ex, "Script base64 decode failed.");
                 await context.ResponseWriter.SendAsync(new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     new JsonObject { ["error"] = "Base64 decode failed" },
@@ -121,6 +124,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
         {
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject { ["error"] = "Script content missing" },
@@ -134,6 +138,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
             _runtime.LoadScript(name, code);
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 BuildHandlerPayload(name, includeScripts: true))).ConfigureAwait(false);
@@ -143,6 +148,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
             Logger.LogError(ex, "Script deploy failed: {Name}", name);
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject { ["error"] = ex.Message },
@@ -157,6 +163,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
         {
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject { ["error"] = "scriptremove requires 'name'" },
@@ -169,6 +176,7 @@ public sealed class JavaScriptBridgeModule : AgentModuleBase
         var removed = _runtime.RemoveScript(name);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             BuildHandlerPayload(removed ? name : null, includeScripts: true),

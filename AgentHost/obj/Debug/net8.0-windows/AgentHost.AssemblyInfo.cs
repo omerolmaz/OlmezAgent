@@ -11,13 +11,15 @@ using System;
 using System.Reflection;
 
 [assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("dotnet-AgentHost-2c6da247-ec27-41e5-bdb1-4be01c148474")]
-[assembly: System.Reflection.AssemblyCompanyAttribute("AgentHost")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("olmez")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff61bfa7cddde55a9377b2ebfc7fd59fd7925f21")]
-[assembly: System.Reflection.AssemblyProductAttribute("AgentHost")]
-[assembly: System.Reflection.AssemblyTitleAttribute("AgentHost")]
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © 2025 olmez")]
+[assembly: System.Reflection.AssemblyDescriptionAttribute("olmez - Modern Remote Management Agent")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("2.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.0.0+d54e55f5074970b0a9e943e77e2d8c88e7f9ec26")]
+[assembly: System.Reflection.AssemblyProductAttribute("olmez Agent")]
+[assembly: System.Reflection.AssemblyTitleAttribute("olmez")]
+[assembly: System.Reflection.AssemblyVersionAttribute("2.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 

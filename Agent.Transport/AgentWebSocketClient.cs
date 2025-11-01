@@ -26,6 +26,11 @@ public sealed class AgentWebSocketClient : IAsyncDisposable
     private readonly AgentContext _context;
     private readonly ILogger<AgentWebSocketClient> _logger;
 
+    /// <summary>
+    /// Dış bileşenlerin (ResponseWriter gibi) WebSocket'e erişmesi için
+    /// </summary>
+    public WebSocket? CurrentSocket => _socket;
+
     public AgentWebSocketClient(
         ICommandDispatcher dispatcher,
         AgentContext context,
@@ -131,11 +136,14 @@ public sealed class AgentWebSocketClient : IAsyncDisposable
 
     private JsonObject BuildHelloPayload()
     {
-        var deviceId = _context.Options.DeviceId ?? Environment.MachineName;
+        var macAddress = GetMacAddress();
+        var deviceId = _context.Options.DeviceId ?? macAddress; // Use MAC address as unique device ID
+        
         var payload = new JsonObject
         {
             ["action"] = "agenthello",
             ["deviceId"] = deviceId,
+            ["macAddress"] = macAddress,
             ["os"] = Environment.OSVersion.VersionString,
             ["architecture"] = Environment.Is64BitOperatingSystem ? "x64" : "x86",
             ["processArch"] = Environment.Is64BitProcess ? "x64" : "x86",
@@ -151,6 +159,31 @@ public sealed class AgentWebSocketClient : IAsyncDisposable
         }
 
         return payload;
+    }
+    
+    private static string GetMacAddress()
+    {
+        try
+        {
+            var nics = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
+            foreach (var nic in nics)
+            {
+                if (nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up &&
+                    nic.NetworkInterfaceType != System.Net.NetworkInformation.NetworkInterfaceType.Loopback)
+                {
+                    var address = nic.GetPhysicalAddress().ToString();
+                    if (!string.IsNullOrEmpty(address))
+                    {
+                        return address;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+        return "000000000000";
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)

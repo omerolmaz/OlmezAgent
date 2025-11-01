@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Agent.Scripting")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff61bfa7cddde55a9377b2ebfc7fd59fd7925f21")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d54e55f5074970b0a9e943e77e2d8c88e7f9ec26")]
 [assembly: System.Reflection.AssemblyProductAttribute("Agent.Scripting")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Agent.Scripting")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

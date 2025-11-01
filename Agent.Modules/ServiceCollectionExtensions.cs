@@ -8,6 +8,9 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAgentModules(this IServiceCollection services)
     {
+        // Protocol module (must be first to handle serverhello)
+        services.AddSingleton<IAgentModule, ProtocolModule>();
+        
         // Core modules
         services.AddSingleton<IAgentModule, CoreDiagnosticsModule>();
         services.AddSingleton<IAgentModule, HealthCheckModule>();

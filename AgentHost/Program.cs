@@ -62,12 +62,21 @@ builder.Services.AddSerilog();
 builder.Services.Configure<AgentRuntimeOptions>(builder.Configuration.GetSection("Agent"));
 builder.Services.AddSingleton<IAgentEventBus, InMemoryAgentEventBus>();
 builder.Services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
-builder.Services.AddSingleton<IAgentResponseWriter, NullResponseWriter>();
 builder.Services.AddAgentModules();
+
+// Placeholder ResponseWriter (WebSocket bağlanana kadar)
+AgentWebSocketClient? wsClientRef = null;
+builder.Services.AddSingleton<IAgentResponseWriter>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<WebSocketResponseWriter>>();
+    return new WebSocketResponseWriter(() => wsClientRef?.CurrentSocket, logger);
+});
+
 builder.Services.AddSingleton<AgentContext>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<AgentRuntimeOptions>>().Value
                  ?? throw new InvalidOperationException("Agent configuration section is missing.");
+    
     if (options.ServerEndpoint is null)
     {
         throw new InvalidOperationException("Agent.ServerEndpoint configuration is required.");
@@ -80,8 +89,18 @@ builder.Services.AddSingleton<AgentContext>(sp =>
         options);
 });
 
+// WebSocket client'ı en son kaydet ve referansı sakla
+builder.Services.AddSingleton<AgentWebSocketClient>(sp =>
+{
+    var client = new AgentWebSocketClient(
+        sp.GetRequiredService<ICommandDispatcher>(),
+        sp.GetRequiredService<AgentContext>(),
+        sp.GetRequiredService<ILogger<AgentWebSocketClient>>());
+    wsClientRef = client;
+    return client;
+});
+
 // Modules will be registered via DI; empty collection is supported during bootstrap.
-builder.Services.AddSingleton<AgentWebSocketClient>();
 builder.Services.AddHostedService<AgentWorker>();
 
 var host = builder.Build();

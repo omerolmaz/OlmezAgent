@@ -1,11 +1,31 @@
 {
   "version": 2,
-  "dgSpecHash": "eR1ZL6IXKxk=",
+  "dgSpecHash": "cnzf0u+ldJA=",
   "success": true,
   "projectFilePath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Transport\\Agent.Transport.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.1\\microsoft.extensions.dependencyinjection.abstractions.8.0.1.nupkg.sha512",
-    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.1\\microsoft.extensions.logging.abstractions.8.0.1.nupkg.sha512"
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.connections.abstractions\\9.0.10\\microsoft.aspnetcore.connections.abstractions.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.http.connections.client\\9.0.10\\microsoft.aspnetcore.http.connections.client.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.http.connections.common\\9.0.10\\microsoft.aspnetcore.http.connections.common.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.signalr.client\\9.0.10\\microsoft.aspnetcore.signalr.client.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.signalr.client.core\\9.0.10\\microsoft.aspnetcore.signalr.client.core.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.signalr.common\\9.0.10\\microsoft.aspnetcore.signalr.common.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.aspnetcore.signalr.protocols.json\\9.0.10\\microsoft.aspnetcore.signalr.protocols.json.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\9.0.10\\microsoft.bcl.asyncinterfaces.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.bcl.timeprovider\\9.0.10\\microsoft.bcl.timeprovider.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\9.0.10\\microsoft.extensions.dependencyinjection.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\9.0.10\\microsoft.extensions.dependencyinjection.abstractions.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.features\\9.0.10\\microsoft.extensions.features.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging\\9.0.10\\microsoft.extensions.logging.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\9.0.10\\microsoft.extensions.logging.abstractions.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.options\\9.0.10\\microsoft.extensions.options.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.primitives\\9.0.10\\microsoft.extensions.primitives.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.diagnostics.diagnosticsource\\9.0.10\\system.diagnostics.diagnosticsource.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.io.pipelines\\9.0.10\\system.io.pipelines.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.net.serversentevents\\9.0.10\\system.net.serversentevents.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.text.encodings.web\\9.0.10\\system.text.encodings.web.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.text.json\\9.0.10\\system.text.json.9.0.10.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\system.threading.channels\\9.0.10\\system.threading.channels.9.0.10.nupkg.sha512"
   ],
   "logs": []
 }

@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -80,6 +80,7 @@ public sealed class MessagingModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -132,6 +133,7 @@ public sealed class MessagingModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -203,6 +205,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -221,6 +224,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject

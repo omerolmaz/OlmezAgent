@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -53,6 +53,7 @@ public sealed class HealthCheckModule : AgentModuleBase
         var health = GetHealthStatus();
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             health)).ConfigureAwait(false);
@@ -116,6 +117,7 @@ public sealed class HealthCheckModule : AgentModuleBase
         var metrics = GetMetrics();
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["metrics"] = metrics })).ConfigureAwait(false);
@@ -169,6 +171,7 @@ public sealed class HealthCheckModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject

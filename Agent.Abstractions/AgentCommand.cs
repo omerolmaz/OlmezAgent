@@ -9,13 +9,14 @@ namespace Agent.Abstractions;
 /// </summary>
 public sealed record AgentCommand(
     string Action,
+    string CommandId,
     string? NodeId,
     string? SessionId,
     JsonElement Payload,
     CancellationToken CancellationToken)
 {
     public static AgentCommand FromEnvelope(CommandEnvelope envelope, CancellationToken token) =>
-        new(envelope.Action, envelope.NodeId, envelope.SessionId, envelope.Payload, token);
+        new(envelope.Action, envelope.CommandId, envelope.NodeId, envelope.SessionId, envelope.Payload, token);
 }
 
 /// <summary>
@@ -23,6 +24,7 @@ public sealed record AgentCommand(
 /// </summary>
 public sealed record CommandEnvelope(
     [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("commandId")] string CommandId,
     [property: JsonPropertyName("nodeid")] string? NodeId,
     [property: JsonPropertyName("sessionid")] string? SessionId,
     [property: JsonPropertyName("data")] JsonElement Payload);

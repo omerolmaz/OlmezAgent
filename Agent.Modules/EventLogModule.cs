@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -94,6 +94,7 @@ public sealed class EventLogModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -218,6 +219,7 @@ public sealed class EventLogModule : AgentModuleBase
         var payloadElement = JsonSerializer.SerializeToElement(payloadObject);
         var modifiedCommand = new AgentCommand(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payloadElement,
@@ -231,6 +233,7 @@ public sealed class EventLogModule : AgentModuleBase
         var payloadElement = JsonSerializer.SerializeToElement(payloadObject);
         var modifiedCommand = new AgentCommand(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payloadElement,
@@ -244,6 +247,7 @@ public sealed class EventLogModule : AgentModuleBase
         var payloadElement = JsonSerializer.SerializeToElement(payloadObject);
         var modifiedCommand = new AgentCommand(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payloadElement,
@@ -294,6 +298,7 @@ public sealed class EventLogModule : AgentModuleBase
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new JsonObject
@@ -325,6 +330,7 @@ public sealed class EventLogModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject
@@ -361,6 +367,7 @@ public sealed class EventLogModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,

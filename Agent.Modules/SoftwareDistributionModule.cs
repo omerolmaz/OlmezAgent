@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -95,6 +95,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -142,6 +143,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,
@@ -168,7 +170,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
             if (updates.Count == 0)
             {
                 payload["message"] = "No updates available.";
-                await context.ResponseWriter.SendAsync(new CommandResult(command.Action, command.NodeId, command.SessionId, payload))
+                await context.ResponseWriter.SendAsync(new CommandResult(command.Action, command.CommandId, command.NodeId, command.SessionId, payload))
                     .ConfigureAwait(false);
                 return;
             }
@@ -195,6 +197,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
 
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -205,6 +208,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
             payload["error"] = ex.Message;
             await context.ResponseWriter.SendAsync(new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 payload,
@@ -291,6 +295,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload,

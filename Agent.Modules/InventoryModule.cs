@@ -1,4 +1,4 @@
-using Agent.Abstractions;
+﻿using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -97,6 +97,7 @@ public sealed class InventoryModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -112,6 +113,7 @@ public sealed class InventoryModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -127,6 +129,7 @@ public sealed class InventoryModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -158,6 +161,7 @@ public sealed class InventoryModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             inventory)).ConfigureAwait(false);
@@ -168,6 +172,7 @@ public sealed class InventoryModule : AgentModuleBase
         var sysInfo = await Task.Run(GetHardwareInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             sysInfo)).ConfigureAwait(false);
@@ -182,6 +187,7 @@ public sealed class InventoryModule : AgentModuleBase
         };
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -196,6 +202,7 @@ public sealed class InventoryModule : AgentModuleBase
 
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload)).ConfigureAwait(false);
@@ -493,6 +500,7 @@ public sealed class InventoryModule : AgentModuleBase
         var smbios = await Task.Run(GetSMBIOSInfo).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             smbios)).ConfigureAwait(false);
@@ -567,6 +575,7 @@ public sealed class InventoryModule : AgentModuleBase
         var vmInfo = await Task.Run(DetectVirtualMachine).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             vmInfo)).ConfigureAwait(false);
@@ -624,6 +633,7 @@ public sealed class InventoryModule : AgentModuleBase
         var networks = await Task.Run(ScanWiFiNetworks).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             new JsonObject { ["networks"] = networks })).ConfigureAwait(false);
@@ -728,6 +738,7 @@ public sealed class InventoryModule : AgentModuleBase
         var counters = await Task.Run(GetPerformanceCounters).ConfigureAwait(false);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             counters)).ConfigureAwait(false);

@@ -26,8 +26,25 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
         _logger = logger;
         _scriptsDirectory = Path.Combine(AppContext.BaseDirectory, "scripts");
         Directory.CreateDirectory(_scriptsDirectory);
-        _engine = CreateEngine();
-        ReloadAllScripts();
+        
+        try
+        {
+            _engine = CreateEngine();
+            ReloadAllScripts();
+            _logger.LogInformation("JavaScript runtime başarıyla yüklendi");
+        }
+        catch (TypeLoadException ex)
+        {
+            _logger.LogInformation("JavaScript devre dışı: V8 runtime yüklenemedi. Visual C++ Redistributable gerekebilir.");
+            _logger.LogDebug(ex, "V8 TypeLoadException detayı");
+            _engine = null!; // JavaScript özellikleri çalışmayacak
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation("JavaScript devre dışı: {Message}", ex.Message);
+            _logger.LogDebug(ex, "JavaScript engine yükleme hatası detayı");
+            _engine = null!;
+        }
     }
 
     public string ScriptsDirectory => _scriptsDirectory;
@@ -36,7 +53,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
     {
         lock (_syncRoot)
         {
-            if (_disposed) return;
+            if (_disposed || _engine == null) return;
             ReloadAllScripts();
         }
     }
@@ -46,6 +63,11 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
         lock (_syncRoot)
         {
             ThrowIfDisposed();
+            if (_engine == null)
+            {
+                _logger.LogWarning("JavaScript engine yüklü değil. Script yüklenemedi: {Name}", name);
+                return;
+            }
             var fileName = SanitizeFileName(name);
             var targetPath = Path.Combine(_scriptsDirectory, fileName);
             File.WriteAllText(targetPath, code, Encoding.UTF8);
@@ -59,6 +81,11 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
         lock (_syncRoot)
         {
             ThrowIfDisposed();
+            if (_engine == null)
+            {
+                _logger.LogWarning("JavaScript engine yüklü değil");
+                return false;
+            }
             var fileName = SanitizeFileName(name);
             var targetPath = Path.Combine(_scriptsDirectory, fileName);
             if (!File.Exists(targetPath))
@@ -77,7 +104,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
     {
         lock (_syncRoot)
         {
-            if (_disposed) return Array.Empty<string>();
+            if (_disposed || _engine == null) return Array.Empty<string>();
             return Directory.EnumerateFiles(_scriptsDirectory, "*.js", SearchOption.TopDirectoryOnly)
                 .Select(Path.GetFileName)
                 .Where(name => !string.Equals(name, "agent.js", StringComparison.OrdinalIgnoreCase))
@@ -89,7 +116,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
     {
         lock (_syncRoot)
         {
-            if (_disposed) return Array.Empty<string>();
+            if (_disposed || _engine == null) return Array.Empty<string>();
             if (!_engine.Script.HasProperty("bridge")) return Array.Empty<string>();
             dynamic bridge = _engine.Script.bridge;
             try
@@ -120,7 +147,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
     {
         lock (_syncRoot)
         {
-            if (_disposed) return false;
+            if (_disposed || _engine == null) return false;
             if (!_engine.Script.HasProperty("bridge")) return false;
             dynamic bridge = _engine.Script.bridge;
             try
@@ -139,7 +166,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
     {
         lock (_syncRoot)
         {
-            if (_disposed) return null;
+            if (_disposed || _engine == null) return null;
             if (!_engine.Script.HasProperty("bridge")) return null;
             dynamic bridge = _engine.Script.bridge;
             try
@@ -172,6 +199,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
 
                 return new CommandResult(
                     command.Action,
+                    command.CommandId,
                     command.NodeId,
                     command.SessionId,
                     payload,
@@ -191,7 +219,7 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
         lock (_syncRoot)
         {
             if (_disposed) return ValueTask.CompletedTask;
-            _engine.Dispose();
+            _engine?.Dispose();
             _disposed = true;
             return ValueTask.CompletedTask;
         }

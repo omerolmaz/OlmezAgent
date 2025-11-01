@@ -26,6 +26,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
             _logger.LogWarning("Yetki reddedildi: {Action} - Gerekli yetki yok", command.Action);
             var result = new CommandResult(
                 command.Action,
+                command.CommandId,
                 command.NodeId,
                 command.SessionId,
                 new System.Text.Json.Nodes.JsonObject

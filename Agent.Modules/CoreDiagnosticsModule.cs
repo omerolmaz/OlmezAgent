@@ -48,6 +48,7 @@ public sealed class CoreDiagnosticsModule : AgentModuleBase
 
         var result = new CommandResult(
             command.Action,
+            command.CommandId,
             command.NodeId,
             command.SessionId,
             payload);
