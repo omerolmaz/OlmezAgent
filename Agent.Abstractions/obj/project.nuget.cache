@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "B1WAjM3ME+0=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.1\\microsoft.extensions.dependencyinjection.abstractions.8.0.1.nupkg.sha512",
+    "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.1\\microsoft.extensions.logging.abstractions.8.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}
