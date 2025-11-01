@@ -20,6 +20,26 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
     public async Task DispatchAsync(AgentCommand command, AgentContext context)
     {
+        // Yetki kontrolü
+        if (!context.UserRights.CanExecuteCommand(command.Action))
+        {
+            _logger.LogWarning("Yetki reddedildi: {Action} - Gerekli yetki yok", command.Action);
+            var result = new CommandResult(
+                command.Action,
+                command.NodeId,
+                command.SessionId,
+                new System.Text.Json.Nodes.JsonObject
+                {
+                    ["error"] = "Insufficient permissions",
+                    ["action"] = command.Action,
+                    ["requiredRight"] = "Permission denied"
+                },
+                Success: false,
+                Error: "Insufficient permissions for this action");
+            await context.ResponseWriter.SendAsync(result, command.CancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         foreach (var module in _modules)
         {
             if (module.SupportedActions.Count > 0 &&

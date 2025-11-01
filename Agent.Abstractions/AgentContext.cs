@@ -10,12 +10,14 @@ public sealed class AgentContext
         IServiceProvider services,
         IAgentEventBus eventBus,
         IAgentResponseWriter responseWriter,
-        AgentRuntimeOptions options)
+        AgentRuntimeOptions options,
+        AgentRights userRights = AgentRights.FullAdministrator)
     {
         Services = services;
         EventBus = eventBus;
         ResponseWriter = responseWriter;
         Options = options;
+        UserRights = userRights;
     }
 
     public IServiceProvider Services { get; }
@@ -23,4 +25,5 @@ public sealed class AgentContext
     public IAgentEventBus EventBus { get; }
     public IAgentResponseWriter ResponseWriter { get; }
     public AgentRuntimeOptions Options { get; }
+    public AgentRights UserRights { get; set; }
 }

@@ -81,14 +81,14 @@
           "C:\\Users\\ÖMERÖLMEZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
-          "net8.0"
+          "net8.0-windows"
         ],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net8.0": {
-            "targetAlias": "net8.0",
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
             "projectReferences": {
               "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj": {
                 "projectPath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj"
@@ -111,14 +111,22 @@
         }
       },
       "frameworks": {
-        "net8.0": {
-          "targetAlias": "net8.0",
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
           "dependencies": {
+            "System.Drawing.Common": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "System.Management": {
               "target": "Package",
               "version": "[8.0.0, )"
             },
             "System.ServiceProcess.ServiceController": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "System.Windows.Extensions": {
               "target": "Package",
               "version": "[8.0.0, )"
             }
@@ -137,6 +145,9 @@
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.415/PortableRuntimeIdentifierGraph.json"
@@ -274,10 +285,10 @@
       }
     },
     "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\AgentHost\\AgentHost.csproj": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\AgentHost\\AgentHost.csproj",
-        "projectName": "AgentHost",
+        "projectName": "olmez",
         "projectPath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\AgentHost\\AgentHost.csproj",
         "packagesPath": "C:\\Users\\ÖMERÖLMEZ\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\AgentHost\\obj\\",
@@ -286,14 +297,14 @@
           "C:\\Users\\ÖMERÖLMEZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
-          "net8.0"
+          "net8.0-windows"
         ],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net8.0": {
-            "targetAlias": "net8.0",
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
             "projectReferences": {
               "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj": {
                 "projectPath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj"
@@ -319,12 +330,46 @@
         }
       },
       "frameworks": {
-        "net8.0": {
-          "targetAlias": "net8.0",
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
           "dependencies": {
             "Microsoft.Extensions.Hosting": {
               "target": "Package",
               "version": "[8.0.1, )"
+            },
+            "Microsoft.NET.ILLink.Tasks": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.21, )",
+              "autoReferenced": true
+            },
+            "Serilog": {
+              "target": "Package",
+              "version": "[4.1.0, )"
+            },
+            "Serilog.Enrichers.Environment": {
+              "target": "Package",
+              "version": "[3.0.1, )"
+            },
+            "Serilog.Enrichers.Thread": {
+              "target": "Package",
+              "version": "[4.0.0, )"
+            },
+            "Serilog.Extensions.Hosting": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Serilog.Formatting.Compact": {
+              "target": "Package",
+              "version": "[3.0.0, )"
+            },
+            "Serilog.Sinks.Console": {
+              "target": "Package",
+              "version": "[6.0.0, )"
+            },
+            "Serilog.Sinks.File": {
+              "target": "Package",
+              "version": "[6.0.0, )"
             }
           },
           "imports": [
@@ -338,9 +383,18 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.NETCore.App.Crossgen2.win-x64",
+              "version": "[8.0.21, 8.0.21]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.415/PortableRuntimeIdentifierGraph.json"

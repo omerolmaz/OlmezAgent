@@ -13,3 +13,4 @@ C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Ag
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Transport\obj\Debug\net8.0\refint\Agent.Transport.dll
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Transport\obj\Debug\net8.0\Agent.Transport.pdb
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Transport\obj\Debug\net8.0\ref\Agent.Transport.dll
+C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Transport\obj\Debug\net8.0\Agent.Transport.sourcelink.json

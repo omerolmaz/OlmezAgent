@@ -250,7 +250,7 @@ public sealed class SoftwareDistributionModule : AgentModuleBase
 
         var taskName = command.Payload.TryGetProperty("taskName", out var taskElement) && taskElement.ValueKind == JsonValueKind.String
             ? taskElement.GetString()!
-            : $"MeshAgentPatch_{Guid.NewGuid():N}";
+            : $"AgentPatch_{Guid.NewGuid():N}";
 
         var powershellCommand =
             "$session = New-Object -ComObject Microsoft.Update.Session; " +

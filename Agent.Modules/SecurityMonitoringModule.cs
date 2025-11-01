@@ -1,0 +1,484 @@
+using Agent.Abstractions;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Management;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+
+namespace Agent.Modules;
+
+public sealed class SecurityMonitoringModule : AgentModuleBase
+{
+    private static readonly IReadOnlyCollection<string> Actions = new[]
+    {
+        "getsecuritystatus",
+        "getantivirusstatus",
+        "getfirewallstatus",
+        "getdefenderstatus",
+        "getuacstatus",
+        "getencryptionstatus"
+    };
+
+    public SecurityMonitoringModule(ILogger<SecurityMonitoringModule> logger) : base(logger)
+    {
+    }
+
+    public override string Name => "SecurityMonitoringModule";
+
+    public override IReadOnlyCollection<string> SupportedActions => Actions;
+
+    public override async Task<bool> HandleAsync(AgentCommand command, AgentContext context)
+    {
+        switch (command.Action.ToLowerInvariant())
+        {
+            case "getsecuritystatus":
+                await HandleSecurityStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "getantivirusstatus":
+                await HandleAntivirusStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "getfirewallstatus":
+                await HandleFirewallStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "getdefenderstatus":
+                await HandleDefenderStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "getuacstatus":
+                await HandleUacStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "getencryptionstatus":
+                await HandleEncryptionStatusAsync(command, context).ConfigureAwait(false);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private async Task HandleSecurityStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetCompleteSecurityStatus).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            status)).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetCompleteSecurityStatus()
+    {
+        var status = new JsonObject
+        {
+            ["timestamp"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["antivirus"] = GetAntivirusInfo(),
+            ["firewall"] = GetFirewallInfo(),
+            ["defender"] = GetDefenderInfo(),
+            ["uac"] = GetUacInfo(),
+            ["encryption"] = GetEncryptionInfo(),
+            ["securityCenter"] = GetSecurityCenterInfo()
+        };
+
+        return status;
+    }
+
+    private async Task HandleAntivirusStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetAntivirusInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["antivirus"] = status })).ConfigureAwait(false);
+    }
+
+    private static JsonArray GetAntivirusInfo()
+    {
+        var antivirusList = new JsonArray();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            antivirusList.Add(new JsonObject { ["error"] = "Only supported on Windows" });
+            return antivirusList;
+        }
+
+        try
+        {
+            // Windows Security Center - Antivirus Products
+            using var searcher = new ManagementObjectSearcher(@"root\SecurityCenter2", "SELECT * FROM AntiVirusProduct");
+            foreach (ManagementObject av in searcher.Get())
+            {
+                var displayName = av["displayName"]?.ToString() ?? "Unknown";
+                var productState = av["productState"] != null ? Convert.ToUInt32(av["productState"]) : 0;
+
+                // Product state parsing
+                var enabled = (productState & 0x1000) != 0;
+                var upToDate = (productState & 0x10) == 0;
+
+                antivirusList.Add(new JsonObject
+                {
+                    ["displayName"] = displayName,
+                    ["instanceGuid"] = av["instanceGuid"]?.ToString(),
+                    ["pathToSignedProductExe"] = av["pathToSignedProductExe"]?.ToString(),
+                    ["productState"] = productState,
+                    ["enabled"] = enabled,
+                    ["upToDate"] = upToDate,
+                    ["timestamp"] = av["timestamp"]?.ToString()
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            antivirusList.Add(new JsonObject { ["error"] = $"Failed to query antivirus: {ex.Message}" });
+        }
+
+        return antivirusList;
+    }
+
+    private async Task HandleFirewallStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetFirewallInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["firewall"] = status })).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetFirewallInfo()
+    {
+        var firewall = new JsonObject();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            firewall["error"] = "Only supported on Windows";
+            return firewall;
+        }
+
+        try
+        {
+            // Windows Firewall status
+            using var searcher = new ManagementObjectSearcher(@"root\SecurityCenter2", "SELECT * FROM FirewallProduct");
+            var products = new JsonArray();
+
+            foreach (ManagementObject fw in searcher.Get())
+            {
+                var displayName = fw["displayName"]?.ToString() ?? "Unknown";
+                var productState = fw["productState"] != null ? Convert.ToUInt32(fw["productState"]) : 0;
+                var enabled = (productState & 0x1000) != 0;
+
+                products.Add(new JsonObject
+                {
+                    ["displayName"] = displayName,
+                    ["productState"] = productState,
+                    ["enabled"] = enabled
+                });
+            }
+
+            firewall["products"] = products;
+
+            // Windows Defender Firewall profiles
+            var profiles = GetFirewallProfiles();
+            firewall["profiles"] = profiles;
+        }
+        catch (Exception ex)
+        {
+            firewall["error"] = $"Failed to query firewall: {ex.Message}";
+        }
+
+        return firewall;
+    }
+
+    private static JsonArray GetFirewallProfiles()
+    {
+        var profiles = new JsonArray();
+
+        try
+        {
+            var profileNames = new[] { "Domain", "Private", "Public" };
+            var profilePaths = new[]
+            {
+                @"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile",
+                @"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile",
+                @"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\PublicProfile"
+            };
+
+            for (int i = 0; i < profileNames.Length; i++)
+            {
+                try
+                {
+                    var enabled = Microsoft.Win32.Registry.GetValue(profilePaths[i], "EnableFirewall", 0);
+                    profiles.Add(new JsonObject
+                    {
+                        ["profile"] = profileNames[i],
+                        ["enabled"] = enabled?.ToString() == "1"
+                    });
+                }
+                catch
+                {
+                    // Profil okunamadı
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            profiles.Add(new JsonObject { ["error"] = ex.Message });
+        }
+
+        return profiles;
+    }
+
+    private async Task HandleDefenderStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetDefenderInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["defender"] = status })).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetDefenderInfo()
+    {
+        var defender = new JsonObject();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            defender["error"] = "Only supported on Windows";
+            return defender;
+        }
+
+        try
+        {
+            // Windows Defender status (WMI MSFT_MpComputerStatus)
+            using var searcher = new ManagementObjectSearcher(@"root\Microsoft\Windows\Defender", "SELECT * FROM MSFT_MpComputerStatus");
+            var status = searcher.Get().Cast<ManagementObject>().FirstOrDefault();
+
+            if (status != null)
+            {
+                defender["antivirusEnabled"] = status["AntivirusEnabled"] != null && Convert.ToBoolean(status["AntivirusEnabled"]);
+                defender["antivirusSignatureLastUpdated"] = status["AntivirusSignatureLastUpdated"]?.ToString();
+                defender["antivirusSignatureVersion"] = status["AntivirusSignatureVersion"]?.ToString();
+                defender["antiSpywareEnabled"] = status["AntispywareEnabled"] != null && Convert.ToBoolean(status["AntispywareEnabled"]);
+                defender["antiSpywareSignatureLastUpdated"] = status["AntispywareSignatureLastUpdated"]?.ToString();
+                defender["realtimeProtectionEnabled"] = status["RealTimeProtectionEnabled"] != null && Convert.ToBoolean(status["RealTimeProtectionEnabled"]);
+                defender["behaviorMonitorEnabled"] = status["BehaviorMonitorEnabled"] != null && Convert.ToBoolean(status["BehaviorMonitorEnabled"]);
+                defender["ioavProtectionEnabled"] = status["IoavProtectionEnabled"] != null && Convert.ToBoolean(status["IoavProtectionEnabled"]);
+                defender["onAccessProtectionEnabled"] = status["OnAccessProtectionEnabled"] != null && Convert.ToBoolean(status["OnAccessProtectionEnabled"]);
+                defender["quickScanAge"] = status["QuickScanAge"] != null ? Convert.ToInt32(status["QuickScanAge"]) : 0;
+                defender["fullScanAge"] = status["FullScanAge"] != null ? Convert.ToInt32(status["FullScanAge"]) : 0;
+                defender["computerState"] = status["ComputerState"] != null ? Convert.ToInt32(status["ComputerState"]) : 0;
+            }
+            else
+            {
+                defender["error"] = "Windows Defender status not available";
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            defender["error"] = "Access denied - Administrator rights required";
+        }
+        catch (ManagementException ex)
+        {
+            defender["error"] = $"WMI query failed: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            defender["error"] = $"Failed to query Defender: {ex.Message}";
+        }
+
+        return defender;
+    }
+
+    private async Task HandleUacStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetUacInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["uac"] = status })).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetUacInfo()
+    {
+        var uac = new JsonObject();
+
+        try
+        {
+            var enableLua = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System",
+                "EnableLUA",
+                0);
+
+            var consentPromptBehaviorAdmin = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System",
+                "ConsentPromptBehaviorAdmin",
+                0);
+
+            var promptOnSecureDesktop = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System",
+                "PromptOnSecureDesktop",
+                0);
+
+            uac["enabled"] = enableLua?.ToString() == "1";
+            uac["consentPromptBehaviorAdmin"] = consentPromptBehaviorAdmin?.ToString();
+            uac["promptOnSecureDesktop"] = promptOnSecureDesktop?.ToString() == "1";
+
+            var level = enableLua?.ToString() == "1"
+                ? (consentPromptBehaviorAdmin?.ToString() == "0" ? "Never notify" :
+                   consentPromptBehaviorAdmin?.ToString() == "5" ? "Always notify" :
+                   "Notify (default)")
+                : "Disabled";
+
+            uac["level"] = level;
+        }
+        catch (Exception ex)
+        {
+            uac["error"] = $"Failed to query UAC: {ex.Message}";
+        }
+
+        return uac;
+    }
+
+    private async Task HandleEncryptionStatusAsync(AgentCommand command, AgentContext context)
+    {
+        var status = await Task.Run(GetEncryptionInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["encryption"] = status })).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetEncryptionInfo()
+    {
+        var encryption = new JsonObject();
+
+        try
+        {
+            // BitLocker status
+            var volumes = new JsonArray();
+            using var searcher = new ManagementObjectSearcher(@"root\CIMV2\Security\MicrosoftVolumeEncryption", "SELECT * FROM Win32_EncryptableVolume");
+
+            foreach (ManagementObject volume in searcher.Get())
+            {
+                var driveLetter = volume["DriveLetter"]?.ToString();
+                var protectionStatus = volume["ProtectionStatus"] != null ? Convert.ToInt32(volume["ProtectionStatus"]) : -1;
+                var conversionStatus = volume["ConversionStatus"] != null ? Convert.ToInt32(volume["ConversionStatus"]) : -1;
+                var encryptionMethod = volume["EncryptionMethod"] != null ? Convert.ToInt32(volume["EncryptionMethod"]) : -1;
+
+                volumes.Add(new JsonObject
+                {
+                    ["driveLetter"] = driveLetter,
+                    ["protectionStatus"] = GetProtectionStatusString(protectionStatus),
+                    ["conversionStatus"] = GetConversionStatusString(conversionStatus),
+                    ["encryptionMethod"] = GetEncryptionMethodString(encryptionMethod)
+                });
+            }
+
+            encryption["bitlockerVolumes"] = volumes;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            encryption["error"] = "Access denied - Administrator rights required";
+        }
+        catch (Exception ex)
+        {
+            encryption["error"] = $"Failed to query BitLocker: {ex.Message}";
+        }
+
+        return encryption;
+    }
+
+    private static string GetProtectionStatusString(int status)
+    {
+        return status switch
+        {
+            0 => "Unprotected",
+            1 => "Protected",
+            2 => "Unknown",
+            _ => $"Unknown ({status})"
+        };
+    }
+
+    private static string GetConversionStatusString(int status)
+    {
+        return status switch
+        {
+            0 => "FullyDecrypted",
+            1 => "FullyEncrypted",
+            2 => "EncryptionInProgress",
+            3 => "DecryptionInProgress",
+            4 => "EncryptionPaused",
+            5 => "DecryptionPaused",
+            _ => $"Unknown ({status})"
+        };
+    }
+
+    private static string GetEncryptionMethodString(int method)
+    {
+        return method switch
+        {
+            0 => "None",
+            1 => "AES_128_WITH_DIFFUSER",
+            2 => "AES_256_WITH_DIFFUSER",
+            3 => "AES_128",
+            4 => "AES_256",
+            6 => "XTS_AES_128",
+            7 => "XTS_AES_256",
+            _ => $"Unknown ({method})"
+        };
+    }
+
+    private static JsonObject GetSecurityCenterInfo()
+    {
+        var securityCenter = new JsonObject();
+
+        try
+        {
+            // Windows Security Center overall status
+            var healthStates = new JsonObject();
+
+            // Check various security components
+            healthStates["antivirusHealthy"] = CheckComponentHealth("AntiVirusProduct");
+            healthStates["firewallHealthy"] = CheckComponentHealth("FirewallProduct");
+            healthStates["antiSpywareHealthy"] = CheckComponentHealth("AntiSpywareProduct");
+
+            securityCenter["componentHealth"] = healthStates;
+        }
+        catch (Exception ex)
+        {
+            securityCenter["error"] = $"Failed to query Security Center: {ex.Message}";
+        }
+
+        return securityCenter;
+    }
+
+    private static bool CheckComponentHealth(string componentClass)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(@"root\SecurityCenter2", $"SELECT * FROM {componentClass}");
+            var products = searcher.Get();
+
+            foreach (ManagementObject product in products)
+            {
+                var productState = product["productState"] != null ? Convert.ToUInt32(product["productState"]) : 0;
+                var enabled = (productState & 0x1000) != 0;
+                var upToDate = (productState & 0x10) == 0;
+
+                if (enabled && upToDate)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

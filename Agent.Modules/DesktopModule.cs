@@ -1,0 +1,371 @@
+using Agent.Abstractions;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Agent.Modules;
+
+public sealed class DesktopModule : AgentModuleBase
+{
+    private static readonly IReadOnlyCollection<string> Actions = new[]
+    {
+        "desktopstart",
+        "desktopstop",
+        "desktopframe",
+        "desktopmousemove",
+        "desktopmouseclick",
+        "desktopmousedown",
+        "desktopmouseup",
+        "desktopkeydown",
+        "desktopkeyup",
+        "desktopkeypress"
+    };
+
+    private readonly ConcurrentDictionary<string, DesktopSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
+
+    public DesktopModule(ILogger<DesktopModule> logger) : base(logger)
+    {
+    }
+
+    public override string Name => "DesktopModule";
+
+    public override IReadOnlyCollection<string> SupportedActions => Actions;
+
+    public override async Task<bool> HandleAsync(AgentCommand command, AgentContext context)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            await SendNotImplementedAsync(command, context, "Desktop sharing is only supported on Windows.").ConfigureAwait(false);
+            return true;
+        }
+
+        switch (command.Action.ToLowerInvariant())
+        {
+            case "desktopstart":
+                await HandleDesktopStartAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopstop":
+                await HandleDesktopStopAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopframe":
+                await HandleDesktopFrameAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopmousemove":
+                await HandleMouseMoveAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopmouseclick":
+                await HandleMouseClickAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopmousedown":
+                await HandleMouseDownAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopmouseup":
+                await HandleMouseUpAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "desktopkeydown":
+            case "desktopkeyup":
+            case "desktopkeypress":
+                await HandleKeyboardAsync(command, context).ConfigureAwait(false);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private async Task HandleDesktopStartAsync(AgentCommand command, AgentContext context)
+    {
+        var sessionId = command.SessionId ?? Guid.NewGuid().ToString();
+        var quality = command.Payload.TryGetProperty("quality", out var qualityElement) && qualityElement.ValueKind == JsonValueKind.Number
+            ? qualityElement.GetInt32()
+            : 60;
+
+        if (_sessions.ContainsKey(sessionId))
+        {
+            await SendNotImplementedAsync(command, context, $"Desktop session '{sessionId}' already exists.").ConfigureAwait(false);
+            return;
+        }
+
+        var session = new DesktopSession(sessionId, quality);
+        _sessions[sessionId] = session;
+
+        var bounds = Screen.PrimaryScreen.Bounds;
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject
+            {
+                ["sessionId"] = sessionId,
+                ["started"] = true,
+                ["width"] = bounds.Width,
+                ["height"] = bounds.Height,
+                ["quality"] = quality
+            })).ConfigureAwait(false);
+
+        Logger.LogInformation("Desktop session başlatıldı: {SessionId}", sessionId);
+    }
+
+    private async Task HandleDesktopStopAsync(AgentCommand command, AgentContext context)
+    {
+        var sessionId = command.SessionId ?? "";
+        if (_sessions.TryRemove(sessionId, out var session))
+        {
+            session.Dispose();
+            Logger.LogInformation("Desktop session durduruldu: {SessionId}", sessionId);
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject
+            {
+                ["sessionId"] = sessionId,
+                ["stopped"] = true
+            })).ConfigureAwait(false);
+    }
+
+    private async Task HandleDesktopFrameAsync(AgentCommand command, AgentContext context)
+    {
+        var sessionId = command.SessionId ?? "";
+        if (!_sessions.TryGetValue(sessionId, out var session))
+        {
+            await SendNotImplementedAsync(command, context, $"Desktop session '{sessionId}' not found.").ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            var frameData = session.CaptureFrame();
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action,
+                command.NodeId,
+                command.SessionId,
+                new JsonObject
+                {
+                    ["sessionId"] = sessionId,
+                    ["frameBase64"] = Convert.ToBase64String(frameData),
+                    ["size"] = frameData.Length
+                })).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Frame yakalama hatası");
+            await SendNotImplementedAsync(command, context, $"Frame capture failed: {ex.Message}").ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleMouseMoveAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("x", out var xElement) || !command.Payload.TryGetProperty("y", out var yElement))
+        {
+            await SendNotImplementedAsync(command, context, "Mouse move requires 'x' and 'y' coordinates.").ConfigureAwait(false);
+            return;
+        }
+
+        var x = xElement.GetInt32();
+        var y = yElement.GetInt32();
+
+        NativeMethods.SetCursorPos(x, y);
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject
+            {
+                ["x"] = x,
+                ["y"] = y,
+                ["ack"] = true
+            })).ConfigureAwait(false);
+    }
+
+    private async Task HandleMouseClickAsync(AgentCommand command, AgentContext context)
+    {
+        var button = command.Payload.TryGetProperty("button", out var buttonElement) && buttonElement.ValueKind == JsonValueKind.Number
+            ? buttonElement.GetInt32()
+            : 0; // 0 = left, 1 = right, 2 = middle
+
+        uint downFlag = button switch
+        {
+            1 => NativeMethods.MOUSEEVENTF_RIGHTDOWN,
+            2 => NativeMethods.MOUSEEVENTF_MIDDLEDOWN,
+            _ => NativeMethods.MOUSEEVENTF_LEFTDOWN
+        };
+
+        uint upFlag = button switch
+        {
+            1 => NativeMethods.MOUSEEVENTF_RIGHTUP,
+            2 => NativeMethods.MOUSEEVENTF_MIDDLEUP,
+            _ => NativeMethods.MOUSEEVENTF_LEFTUP
+        };
+
+        NativeMethods.mouse_event(downFlag, 0, 0, 0, 0);
+        Thread.Sleep(50);
+        NativeMethods.mouse_event(upFlag, 0, 0, 0, 0);
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["ack"] = true, ["button"] = button })).ConfigureAwait(false);
+    }
+
+    private async Task HandleMouseDownAsync(AgentCommand command, AgentContext context)
+    {
+        var button = command.Payload.TryGetProperty("button", out var buttonElement) && buttonElement.ValueKind == JsonValueKind.Number
+            ? buttonElement.GetInt32()
+            : 0;
+
+        uint flag = button switch
+        {
+            1 => NativeMethods.MOUSEEVENTF_RIGHTDOWN,
+            2 => NativeMethods.MOUSEEVENTF_MIDDLEDOWN,
+            _ => NativeMethods.MOUSEEVENTF_LEFTDOWN
+        };
+
+        NativeMethods.mouse_event(flag, 0, 0, 0, 0);
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["ack"] = true })).ConfigureAwait(false);
+    }
+
+    private async Task HandleMouseUpAsync(AgentCommand command, AgentContext context)
+    {
+        var button = command.Payload.TryGetProperty("button", out var buttonElement) && buttonElement.ValueKind == JsonValueKind.Number
+            ? buttonElement.GetInt32()
+            : 0;
+
+        uint flag = button switch
+        {
+            1 => NativeMethods.MOUSEEVENTF_RIGHTUP,
+            2 => NativeMethods.MOUSEEVENTF_MIDDLEUP,
+            _ => NativeMethods.MOUSEEVENTF_LEFTUP
+        };
+
+        NativeMethods.mouse_event(flag, 0, 0, 0, 0);
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["ack"] = true })).ConfigureAwait(false);
+    }
+
+    private async Task HandleKeyboardAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("key", out var keyElement) || keyElement.ValueKind != JsonValueKind.Number)
+        {
+            await SendNotImplementedAsync(command, context, "Keyboard action requires 'key' code.").ConfigureAwait(false);
+            return;
+        }
+
+        var keyCode = (byte)keyElement.GetInt32();
+        var action = command.Action.ToLowerInvariant();
+
+        if (action == "desktopkeydown" || action == "desktopkeypress")
+        {
+            NativeMethods.keybd_event(keyCode, 0, 0, 0);
+        }
+
+        if (action == "desktopkeyup" || action == "desktopkeypress")
+        {
+            NativeMethods.keybd_event(keyCode, 0, NativeMethods.KEYEVENTF_KEYUP, 0);
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["ack"] = true, ["key"] = keyCode })).ConfigureAwait(false);
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        foreach (var session in _sessions.Values)
+        {
+            session.Dispose();
+        }
+        _sessions.Clear();
+        await base.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private sealed class DesktopSession : IDisposable
+    {
+        private readonly string _sessionId;
+        private readonly int _quality;
+
+        public DesktopSession(string sessionId, int quality)
+        {
+            _sessionId = sessionId;
+            _quality = Math.Clamp(quality, 10, 100);
+        }
+
+        public byte[] CaptureFrame()
+        {
+            var bounds = Screen.PrimaryScreen.Bounds;
+            using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
+
+            using var ms = new MemoryStream();
+            var encoder = GetEncoder(ImageFormat.Jpeg);
+            var encoderParameters = new EncoderParameters(1);
+            encoderParameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)_quality);
+            bitmap.Save(ms, encoder, encoderParameters);
+
+            return ms.ToArray();
+        }
+
+        private static ImageCodecInfo GetEncoder(ImageFormat format)
+        {
+            var codecs = ImageCodecInfo.GetImageDecoders();
+            foreach (var codec in codecs)
+            {
+                if (codec.FormatID == format.Guid)
+                {
+                    return codec;
+                }
+            }
+            return codecs[0];
+        }
+
+        public void Dispose()
+        {
+            // Cleanup if needed
+        }
+    }
+
+    private static class NativeMethods
+    {
+        public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+        public const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+        public const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+        public const uint KEYEVENTF_KEYUP = 0x0002;
+
+        [DllImport("user32.dll")]
+        public static extern bool SetCursorPos(int x, int y);
+
+        [DllImport("user32.dll")]
+        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
+
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+    }
+}

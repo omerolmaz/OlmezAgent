@@ -5,7 +5,7 @@ using System.Threading;
 namespace Agent.Abstractions;
 
 /// <summary>
-/// Temel Mesh benzeri komut yapısını temsil eder.
+/// Temel agent komut yapısını temsil eder.
 /// </summary>
 public sealed record AgentCommand(
     string Action,

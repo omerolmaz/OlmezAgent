@@ -4,10 +4,10 @@ namespace AgentHost;
 
 public class AgentWorker : BackgroundService
 {
-    private readonly MeshWebSocketClient _client;
+    private readonly AgentWebSocketClient _client;
     private readonly ILogger<AgentWorker> _logger;
 
-    public AgentWorker(MeshWebSocketClient client, ILogger<AgentWorker> logger)
+    public AgentWorker(AgentWebSocketClient client, ILogger<AgentWorker> logger)
     {
         _client = client;
         _logger = logger;

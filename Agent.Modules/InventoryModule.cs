@@ -2,10 +2,12 @@ using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Management;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -21,7 +23,11 @@ public sealed class InventoryModule : AgentModuleBase
         "getpendingupdates",
         "sysinfo",
         "cpuinfo",
-        "netinfo"
+        "netinfo",
+        "smbios",
+        "vm",
+        "wifiscan",
+        "perfcounters"
     };
 
     public InventoryModule(ILogger<InventoryModule> logger) : base(logger)
@@ -63,6 +69,18 @@ public sealed class InventoryModule : AgentModuleBase
                 return true;
             case "netinfo":
                 await HandleNetInfoAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "smbios":
+                await HandleSMBIOSAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "vm":
+                await HandleVMDetectionAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "wifiscan":
+                await HandleWiFiScanAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "perfcounters":
+                await HandlePerfCountersAsync(command, context).ConfigureAwait(false);
                 return true;
             default:
                 return false;
@@ -468,5 +486,340 @@ public sealed class InventoryModule : AgentModuleBase
         }
 
         return result;
+    }
+
+    private async Task HandleSMBIOSAsync(AgentCommand command, AgentContext context)
+    {
+        var smbios = await Task.Run(GetSMBIOSInfo).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            smbios)).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetSMBIOSInfo()
+    {
+        var info = new JsonObject();
+        try
+        {
+            // BIOS bilgileri
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+            {
+                var bios = searcher.Get().Cast<ManagementObject>().FirstOrDefault();
+                if (bios != null)
+                {
+                    info["bios"] = new JsonObject
+                    {
+                        ["manufacturer"] = bios["Manufacturer"]?.ToString(),
+                        ["name"] = bios["Name"]?.ToString(),
+                        ["version"] = bios["Version"]?.ToString(),
+                        ["serialNumber"] = bios["SerialNumber"]?.ToString(),
+                        ["releaseDate"] = bios["ReleaseDate"]?.ToString()
+                    };
+                }
+            }
+
+            // Anakart bilgileri
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
+            {
+                var board = searcher.Get().Cast<ManagementObject>().FirstOrDefault();
+                if (board != null)
+                {
+                    info["motherboard"] = new JsonObject
+                    {
+                        ["manufacturer"] = board["Manufacturer"]?.ToString(),
+                        ["product"] = board["Product"]?.ToString(),
+                        ["serialNumber"] = board["SerialNumber"]?.ToString(),
+                        ["version"] = board["Version"]?.ToString()
+                    };
+                }
+            }
+
+            // Bellek modülleri
+            var memoryArray = new JsonArray();
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory"))
+            {
+                foreach (ManagementObject memory in searcher.Get())
+                {
+                    memoryArray.Add(new JsonObject
+                    {
+                        ["manufacturer"] = memory["Manufacturer"]?.ToString(),
+                        ["capacity"] = memory["Capacity"]?.ToString(),
+                        ["speed"] = memory["Speed"]?.ToString(),
+                        ["deviceLocator"] = memory["DeviceLocator"]?.ToString(),
+                        ["partNumber"] = memory["PartNumber"]?.ToString()
+                    });
+                }
+            }
+            info["memory"] = memoryArray;
+        }
+        catch (Exception ex)
+        {
+            info["error"] = $"SMBIOS query failed: {ex.Message}";
+        }
+
+        return info;
+    }
+
+    private async Task HandleVMDetectionAsync(AgentCommand command, AgentContext context)
+    {
+        var vmInfo = await Task.Run(DetectVirtualMachine).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            vmInfo)).ConfigureAwait(false);
+    }
+
+    private static JsonObject DetectVirtualMachine()
+    {
+        var info = new JsonObject { ["isVirtualMachine"] = false };
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem");
+            var system = searcher.Get().Cast<ManagementObject>().FirstOrDefault();
+            if (system != null)
+            {
+                var manufacturer = system["Manufacturer"]?.ToString()?.ToLowerInvariant() ?? "";
+                var model = system["Model"]?.ToString()?.ToLowerInvariant() ?? "";
+
+                var vmIndicators = new[] { "vmware", "virtualbox", "virtual", "qemu", "kvm", "xen", "hyper-v", "parallels" };
+                var isVM = vmIndicators.Any(indicator => manufacturer.Contains(indicator) || model.Contains(indicator));
+
+                info["isVirtualMachine"] = isVM;
+                info["manufacturer"] = system["Manufacturer"]?.ToString();
+                info["model"] = system["Model"]?.ToString();
+
+                if (isVM)
+                {
+                    if (manufacturer.Contains("vmware") || model.Contains("vmware"))
+                        info["hypervisor"] = "VMware";
+                    else if (manufacturer.Contains("virtualbox") || model.Contains("virtualbox"))
+                        info["hypervisor"] = "VirtualBox";
+                    else if (manufacturer.Contains("qemu") || model.Contains("qemu"))
+                        info["hypervisor"] = "QEMU";
+                    else if (manufacturer.Contains("microsoft") && model.Contains("virtual"))
+                        info["hypervisor"] = "Hyper-V";
+                    else if (manufacturer.Contains("xen") || model.Contains("xen"))
+                        info["hypervisor"] = "Xen";
+                    else if (manufacturer.Contains("parallels"))
+                        info["hypervisor"] = "Parallels";
+                    else
+                        info["hypervisor"] = "Unknown";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            info["error"] = $"VM detection failed: {ex.Message}";
+        }
+
+        return info;
+    }
+
+    private async Task HandleWiFiScanAsync(AgentCommand command, AgentContext context)
+    {
+        var networks = await Task.Run(ScanWiFiNetworks).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            new JsonObject { ["networks"] = networks })).ConfigureAwait(false);
+    }
+
+    private static JsonArray ScanWiFiNetworks()
+    {
+        var networks = new JsonArray();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            networks.Add(new JsonObject { ["error"] = "WiFi scan is only supported on Windows" });
+            return networks;
+        }
+
+        try
+        {
+            // netsh wlan show networks mode=bssid kullanarak WiFi ağlarını tarama
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "netsh.exe",
+                Arguments = "wlan show networks mode=bssid",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                networks.Add(new JsonObject { ["error"] = "Failed to start netsh process" });
+                return networks;
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                networks.Add(new JsonObject { ["error"] = "netsh command failed" });
+                return networks;
+            }
+
+            // Basit parsing (her SSID için bir entry)
+            var lines = output.Split('\n');
+            JsonObject? currentNetwork = null;
+
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("SSID", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (currentNetwork != null)
+                    {
+                        networks.Add(currentNetwork);
+                    }
+
+                    var ssid = trimmed.Split(':').Length > 1 ? trimmed.Split(':')[1].Trim() : "";
+                    currentNetwork = new JsonObject { ["ssid"] = ssid };
+                }
+                else if (currentNetwork != null)
+                {
+                    if (trimmed.StartsWith("Signal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var signal = trimmed.Split(':').Length > 1 ? trimmed.Split(':')[1].Trim() : "";
+                        currentNetwork["signal"] = signal;
+                    }
+                    else if (trimmed.StartsWith("Authentication", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var auth = trimmed.Split(':').Length > 1 ? trimmed.Split(':')[1].Trim() : "";
+                        currentNetwork["authentication"] = auth;
+                    }
+                    else if (trimmed.StartsWith("Encryption", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var encryption = trimmed.Split(':').Length > 1 ? trimmed.Split(':')[1].Trim() : "";
+                        currentNetwork["encryption"] = encryption;
+                    }
+                    else if (trimmed.StartsWith("BSSID", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var bssid = trimmed.Split(':').Length > 1 ? string.Join(":", trimmed.Split(':').Skip(1)).Trim() : "";
+                        currentNetwork["bssid"] = bssid;
+                    }
+                }
+            }
+
+            if (currentNetwork != null)
+            {
+                networks.Add(currentNetwork);
+            }
+        }
+        catch (Exception ex)
+        {
+            networks.Add(new JsonObject { ["error"] = $"WiFi scan failed: {ex.Message}" });
+        }
+
+        return networks;
+    }
+
+    private async Task HandlePerfCountersAsync(AgentCommand command, AgentContext context)
+    {
+        var counters = await Task.Run(GetPerformanceCounters).ConfigureAwait(false);
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            counters)).ConfigureAwait(false);
+    }
+
+    private static JsonObject GetPerformanceCounters()
+    {
+        var counters = new JsonObject();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            counters["error"] = "Performance counters are only supported on Windows";
+            return counters;
+        }
+
+        try
+        {
+            // CPU kullanımı
+            using (var cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total"))
+            {
+                cpuCounter.NextValue(); // İlk çağrı
+                System.Threading.Thread.Sleep(100);
+                counters["cpuUsagePercent"] = Math.Round(cpuCounter.NextValue(), 2);
+            }
+
+            // Bellek kullanımı
+            using (var memAvailable = new PerformanceCounter("Memory", "Available MBytes"))
+            {
+                counters["memoryAvailableMB"] = Math.Round(memAvailable.NextValue(), 2);
+            }
+
+            // Disk okuma/yazma
+            var diskReads = new JsonArray();
+            var diskWrites = new JsonArray();
+
+            using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name != '_Total'"))
+            {
+                foreach (ManagementObject disk in searcher.Get())
+                {
+                    var diskName = disk["Name"]?.ToString();
+                    if (!string.IsNullOrEmpty(diskName))
+                    {
+                        try
+                        {
+                            using var readCounter = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", diskName);
+                            using var writeCounter = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", diskName);
+
+                            diskReads.Add(new JsonObject
+                            {
+                                ["disk"] = diskName,
+                                ["bytesPerSec"] = Math.Round(readCounter.NextValue(), 2)
+                            });
+
+                            diskWrites.Add(new JsonObject
+                            {
+                                ["disk"] = diskName,
+                                ["bytesPerSec"] = Math.Round(writeCounter.NextValue(), 2)
+                            });
+                        }
+                        catch
+                        {
+                            // Bazı diskler için counter mevcut olmayabilir
+                        }
+                    }
+                }
+            }
+
+            counters["diskReads"] = diskReads;
+            counters["diskWrites"] = diskWrites;
+
+            // Network kullanımı
+            var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(ni => ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+
+            var netStats = new JsonArray();
+            foreach (var ni in networkInterfaces)
+            {
+                var stats = ni.GetIPv4Statistics();
+                netStats.Add(new JsonObject
+                {
+                    ["interface"] = ni.Name,
+                    ["bytesSent"] = stats.BytesSent,
+                    ["bytesReceived"] = stats.BytesReceived
+                });
+            }
+            counters["networkInterfaces"] = netStats;
+        }
+        catch (Exception ex)
+        {
+            counters["error"] = $"Performance counter query failed: {ex.Message}";
+        }
+
+        return counters;
     }
 }

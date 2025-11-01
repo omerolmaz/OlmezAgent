@@ -81,14 +81,14 @@
           "C:\\Users\\ÖMERÖLMEZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
-          "net8.0"
+          "net8.0-windows"
         ],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net8.0": {
-            "targetAlias": "net8.0",
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
             "projectReferences": {
               "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj": {
                 "projectPath": "C:\\Users\\ÖMERÖLMEZ\\OneDrive - SiteTelekom\\Masaüstü\\Yeni klasör\\YeniAgent\\Agent.Abstractions\\Agent.Abstractions.csproj"
@@ -111,14 +111,22 @@
         }
       },
       "frameworks": {
-        "net8.0": {
-          "targetAlias": "net8.0",
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
           "dependencies": {
+            "System.Drawing.Common": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "System.Management": {
               "target": "Package",
               "version": "[8.0.0, )"
             },
             "System.ServiceProcess.ServiceController": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "System.Windows.Extensions": {
               "target": "Package",
               "version": "[8.0.0, )"
             }
@@ -137,6 +145,9 @@
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.415/PortableRuntimeIdentifierGraph.json"

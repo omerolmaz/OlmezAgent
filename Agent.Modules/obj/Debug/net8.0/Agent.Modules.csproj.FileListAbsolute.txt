@@ -15,3 +15,4 @@ C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Ag
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Modules\obj\Debug\net8.0\ref\Agent.Modules.dll
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Modules\bin\Debug\net8.0\Agent.Scripting.dll
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Modules\bin\Debug\net8.0\Agent.Scripting.pdb
+C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Modules\obj\Debug\net8.0\Agent.Modules.sourcelink.json

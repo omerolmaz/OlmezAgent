@@ -10,3 +10,4 @@ C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Ag
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Abstractions\obj\Debug\net8.0\refint\Agent.Abstractions.dll
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Abstractions\obj\Debug\net8.0\Agent.Abstractions.pdb
 C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Abstractions\obj\Debug\net8.0\ref\Agent.Abstractions.dll
+C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniAgent\Agent.Abstractions\obj\Debug\net8.0\Agent.Abstractions.sourcelink.json

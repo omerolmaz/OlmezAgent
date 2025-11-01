@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Agent.Transport;
 
-public sealed class MeshWebSocketClient : IAsyncDisposable
+public sealed class AgentWebSocketClient : IAsyncDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -24,12 +24,12 @@ public sealed class MeshWebSocketClient : IAsyncDisposable
     private ClientWebSocket? _socket;
     private readonly ICommandDispatcher _dispatcher;
     private readonly AgentContext _context;
-    private readonly ILogger<MeshWebSocketClient> _logger;
+    private readonly ILogger<AgentWebSocketClient> _logger;
 
-    public MeshWebSocketClient(
+    public AgentWebSocketClient(
         ICommandDispatcher dispatcher,
         AgentContext context,
-        ILogger<MeshWebSocketClient> logger)
+        ILogger<AgentWebSocketClient> logger)
     {
         _dispatcher = dispatcher;
         _context = context;
@@ -142,7 +142,7 @@ public sealed class MeshWebSocketClient : IAsyncDisposable
             ["username"] = Environment.UserName,
             ["machineName"] = Environment.MachineName,
             ["domain"] = Environment.UserDomainName,
-            ["agentVersion"] = typeof(MeshWebSocketClient).Assembly.GetName().Version?.ToString() ?? "0.0.0"
+            ["agentVersion"] = typeof(AgentWebSocketClient).Assembly.GetName().Version?.ToString() ?? "0.0.0"
         };
 
         if (!string.IsNullOrWhiteSpace(_context.Options.EnrollmentKey))

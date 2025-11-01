@@ -6,6 +6,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Net;
+using System.Net.Sockets;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
@@ -24,9 +27,16 @@ public sealed class RemoteOperationsModule : AgentModuleBase
         "ls",
         "download",
         "upload",
+        "mkdir",
+        "rm",
+        "zip",
+        "unzip",
         "openurl",
         "wallpaper",
-        "kvmmode"
+        "kvmmode",
+        "wakeonlan",
+        "clipboardget",
+        "clipboardset"
     };
 
     private readonly ConcurrentDictionary<string, ConsoleSession> _consoleSessions = new(StringComparer.OrdinalIgnoreCase);
@@ -56,6 +66,18 @@ public sealed class RemoteOperationsModule : AgentModuleBase
             case "upload":
                 await HandleUploadAsync(command, context).ConfigureAwait(false);
                 return true;
+            case "mkdir":
+                await HandleMkdirAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "rm":
+                await HandleRemoveAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "zip":
+                await HandleZipAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "unzip":
+                await HandleUnzipAsync(command, context).ConfigureAwait(false);
+                return true;
             case "service":
                 await HandleServiceAsync(command, context).ConfigureAwait(false);
                 return true;
@@ -64,6 +86,15 @@ public sealed class RemoteOperationsModule : AgentModuleBase
                 return true;
             case "openurl":
                 await HandleOpenUrlAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "wakeonlan":
+                await HandleWakeOnLanAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "clipboardget":
+                await HandleClipboardGetAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "clipboardset":
+                await HandleClipboardSetAsync(command, context).ConfigureAwait(false);
                 return true;
             case "wallpaper":
             case "kvmmode":
@@ -614,4 +645,312 @@ public sealed class RemoteOperationsModule : AgentModuleBase
         }
     }
 
+    private async Task HandleMkdirAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("path", out var pathElement) || pathElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "mkdir requires 'path'.").ConfigureAwait(false);
+            return;
+        }
+
+        var path = pathElement.GetString()!;
+        var payload = new JsonObject { ["path"] = path };
+
+        try
+        {
+            Directory.CreateDirectory(path);
+            payload["created"] = true;
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private async Task HandleRemoveAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("path", out var pathElement) || pathElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "rm requires 'path'.").ConfigureAwait(false);
+            return;
+        }
+
+        var path = pathElement.GetString()!;
+        var recursive = command.Payload.TryGetProperty("recursive", out var recElement) && recElement.GetBoolean();
+        var payload = new JsonObject { ["path"] = path, ["recursive"] = recursive };
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                payload["deleted"] = "file";
+            }
+            else if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive);
+                payload["deleted"] = "directory";
+            }
+            else
+            {
+                throw new FileNotFoundException($"Path not found: {path}");
+            }
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private async Task HandleZipAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("source", out var sourceElement) || sourceElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "zip requires 'source'.").ConfigureAwait(false);
+            return;
+        }
+
+        var source = sourceElement.GetString()!;
+        var target = command.Payload.TryGetProperty("target", out var targetElement) && targetElement.ValueKind == JsonValueKind.String
+            ? targetElement.GetString()!
+            : source + ".zip";
+
+        var payload = new JsonObject { ["source"] = source, ["target"] = target };
+
+        try
+        {
+            if (File.Exists(target))
+            {
+                File.Delete(target);
+            }
+
+            if (Directory.Exists(source))
+            {
+                ZipFile.CreateFromDirectory(source, target);
+            }
+            else if (File.Exists(source))
+            {
+                using var archive = ZipFile.Open(target, ZipArchiveMode.Create);
+                archive.CreateEntryFromFile(source, Path.GetFileName(source));
+            }
+            else
+            {
+                throw new FileNotFoundException($"Source not found: {source}");
+            }
+
+            var fileInfo = new FileInfo(target);
+            payload["created"] = true;
+            payload["size"] = fileInfo.Length;
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private async Task HandleUnzipAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("source", out var sourceElement) || sourceElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "unzip requires 'source'.").ConfigureAwait(false);
+            return;
+        }
+
+        var source = sourceElement.GetString()!;
+        var target = command.Payload.TryGetProperty("target", out var targetElement) && targetElement.ValueKind == JsonValueKind.String
+            ? targetElement.GetString()!
+            : Path.Combine(Path.GetDirectoryName(source)!, Path.GetFileNameWithoutExtension(source));
+
+        var payload = new JsonObject { ["source"] = source, ["target"] = target };
+
+        try
+        {
+            if (!File.Exists(source))
+            {
+                throw new FileNotFoundException($"Archive not found: {source}");
+            }
+
+            Directory.CreateDirectory(target);
+            ZipFile.ExtractToDirectory(source, target, overwriteFiles: true);
+            payload["extracted"] = true;
+            payload["fileCount"] = Directory.GetFiles(target, "*", SearchOption.AllDirectories).Length;
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private async Task HandleWakeOnLanAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("mac", out var macElement) || macElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "wakeonlan requires 'mac' address.").ConfigureAwait(false);
+            return;
+        }
+
+        var macAddress = macElement.GetString()!;
+        var payload = new JsonObject { ["mac"] = macAddress };
+
+        try
+        {
+            var macBytes = ParseMacAddress(macAddress);
+            var magicPacket = BuildMagicPacket(macBytes);
+
+            using var client = new UdpClient();
+            client.EnableBroadcast = true;
+            var endpoint = new IPEndPoint(IPAddress.Broadcast, 9);
+            await client.SendAsync(magicPacket, magicPacket.Length, endpoint).ConfigureAwait(false);
+
+            payload["sent"] = true;
+            payload["packetSize"] = magicPacket.Length;
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private static byte[] ParseMacAddress(string mac)
+    {
+        var cleanMac = mac.Replace(":", "").Replace("-", "").Replace(" ", "");
+        if (cleanMac.Length != 12)
+        {
+            throw new ArgumentException("Invalid MAC address format");
+        }
+
+        var bytes = new byte[6];
+        for (int i = 0; i < 6; i++)
+        {
+            bytes[i] = Convert.ToByte(cleanMac.Substring(i * 2, 2), 16);
+        }
+        return bytes;
+    }
+
+    private static byte[] BuildMagicPacket(byte[] macAddress)
+    {
+        var packet = new byte[102];
+
+        // 6 bytes of 0xFF
+        for (int i = 0; i < 6; i++)
+        {
+            packet[i] = 0xFF;
+        }
+
+        // MAC address repeated 16 times
+        for (int i = 0; i < 16; i++)
+        {
+            Array.Copy(macAddress, 0, packet, 6 + (i * 6), 6);
+        }
+
+        return packet;
+    }
+
+    private async Task HandleClipboardGetAsync(AgentCommand command, AgentContext context)
+    {
+        var payload = new JsonObject();
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var text = System.Windows.Forms.Clipboard.GetText();
+                payload["content"] = text;
+                payload["type"] = "text";
+            }
+            else
+            {
+                payload["error"] = "Clipboard operations are only supported on Windows";
+            }
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
+
+    private async Task HandleClipboardSetAsync(AgentCommand command, AgentContext context)
+    {
+        if (!command.Payload.TryGetProperty("content", out var contentElement) || contentElement.ValueKind != JsonValueKind.String)
+        {
+            await SendNotImplementedAsync(command, context, "clipboardset requires 'content'.").ConfigureAwait(false);
+            return;
+        }
+
+        var content = contentElement.GetString()!;
+        var payload = new JsonObject { ["content"] = content };
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                System.Windows.Forms.Clipboard.SetText(content);
+                payload["set"] = true;
+            }
+            else
+            {
+                payload["error"] = "Clipboard operations are only supported on Windows";
+            }
+        }
+        catch (Exception ex)
+        {
+            payload["error"] = ex.Message;
+        }
+
+        await context.ResponseWriter.SendAsync(new CommandResult(
+            command.Action,
+            command.NodeId,
+            command.SessionId,
+            payload,
+            Success: !payload.ContainsKey("error"),
+            Error: payload.TryGetPropertyValue("error", out var err) ? err?.GetValue<string>() : null)).ConfigureAwait(false);
+    }
 }

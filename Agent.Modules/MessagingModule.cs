@@ -101,6 +101,35 @@ public sealed class MessagingModule : AgentModuleBase
 
         Logger.LogInformation("Notification ({Action}): {Title} - {Message}", command.Action, title, message);
 
+        // Gerçek UI bildirimi göster (Windows'ta)
+        if (OperatingSystem.IsWindows() && !string.IsNullOrEmpty(message))
+        {
+            try
+            {
+                switch (command.Action.ToLowerInvariant())
+                {
+                    case "messagebox":
+                        // MessageBox göster (blocking)
+                        var mbResult = System.Windows.Forms.MessageBox.Show(
+                            message,
+                            title ?? "Agent Mesajı",
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Information);
+                        break;
+
+                    case "toast":
+                    case "notify":
+                        // Toast notification (non-blocking) - PowerShell ile basit bildirim
+                        await ShowToastNotificationAsync(title ?? "Agent Bildirimi", message).ConfigureAwait(false);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "UI bildirimi gösterilemedi");
+            }
+        }
+
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
             command.NodeId,
@@ -109,8 +138,48 @@ public sealed class MessagingModule : AgentModuleBase
             {
                 ["ack"] = true,
                 ["title"] = title,
-                ["message"] = message
+                ["message"] = message,
+                ["displayed"] = OperatingSystem.IsWindows()
             })).ConfigureAwait(false);
+    }
+
+    private async Task ShowToastNotificationAsync(string title, string message)
+    {
+        // PowerShell ile Windows Toast Notification göster
+        var script = $@"
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$toastXml = [xml]$template.GetXml()
+$toastXml.toast.visual.binding.text[0].AppendChild($toastXml.CreateTextNode('{title.Replace("'", "''")}')) > $null
+$toastXml.toast.visual.binding.text[1].AppendChild($toastXml.CreateTextNode('{message.Replace("'", "''")}')) > $null
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($toastXml.OuterXml)
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AgentHost').Show($toast)
+";
+
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -NonInteractive -Command \"{script.Replace("\"", "`\"")}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            if (process != null)
+            {
+                await process.WaitForExitAsync().ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Toast notification gösterilemedi");
+        }
     }
 
     private async Task HandleChatAsync(AgentCommand command, AgentContext context)
