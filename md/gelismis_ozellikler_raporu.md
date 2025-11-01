@@ -255,6 +255,51 @@ public async Task<CommandResult> ExecuteAsync(AgentCommand command, AgentContext
 - Gradient background desteği
 - Anti-aliasing text rendering
 
+### 12. Windows Service Support ✅
+**Dosya:** `AgentHost/ServiceInstaller.cs`, `Program.cs`
+
+**Çalışma Modları:**
+- **Console Mode (Standalone):** `olmez.exe` ile doğrudan çalıştırılır
+- **Windows Service Mode:** Service olarak arka planda sürekli çalışır
+
+**Service Komutları:**
+```bash
+# Service olarak kurulum (Administrator gerektirir)
+olmez.exe --install-service
+
+# Service'i kaldır
+olmez.exe --uninstall-service
+
+# Service durumunu kontrol et
+sc query olmezAgent
+
+# Service'i başlat/durdur
+sc start olmezAgent
+sc stop olmezAgent
+
+# Otomatik başlatma ayarları
+sc config olmezAgent start=auto      # Windows başlangıcında otomatik
+sc config olmezAgent start=demand    # Manuel başlatma
+```
+
+**Özellikler:**
+- `Microsoft.Extensions.Hosting.WindowsServices` entegrasyonu
+- Otomatik mod tespiti (Console/Service)
+- Administrator yetki kontrolü
+- Service durumu yönetimi (install/uninstall/start/stop)
+- Service açıklaması ve display name
+- Graceful shutdown desteği
+- Windows Event Log entegrasyonu
+- Detaylı hata mesajları
+- Cross-platform kontrol (sadece Windows'ta service modu)
+
+**Service Bilgileri:**
+- Service Name: `olmezAgent`
+- Display Name: `olmez Agent`
+- Description: `olmez - Modern Remote Management Agent`
+- Start Type: Automatic (Manuel olarak değiştirilebilir)
+- Binary Path: `olmez.exe`
+
 ## Modül Kayıt Durumu
 `Agent.Modules/ServiceCollectionExtensions.cs` dosyasında tüm modüller kayıtlı:
 
@@ -291,6 +336,9 @@ services.AddSingleton<IAgentModule, JavaScriptBridgeModule>();
 
 **Toplam Modül Sayısı:** 14 modül
 **Toplam Komut Sayısı:** 70+ komut
+
+**Eklenen Paketler (Windows Service):**
+- `Microsoft.Extensions.Hosting.WindowsServices` (8.0.1)
 
 ## Teknik Detaylar
 
@@ -491,39 +539,178 @@ if (!context.UserRights.HasFlag(AgentRights.ClearEventLogs))
 - **IconGenerator** - Dinamik ikon oluşturma aracı
 - Multi-resolution ikon desteği (16px - 256px)
 
+### ✅ Windows Service Desteği
+- **ServiceInstaller** - Service kurulum/kaldırma yönetimi
+- Console ve Service mode desteği
+- Administrator yetki kontrolü
+- Komut satırı argümanları (--install-service, --uninstall-service, --help)
+- Detaylı kullanıcı rehberi
+
 ### ✅ Build İyileştirmeleri
 - Release configuration eklendi
 - Windows-specific targeting (net8.0-windows)
 - Assembly metadata güncellemeleri
 - SourceLink desteği (debugging için)
+- `Microsoft.Extensions.Hosting.WindowsServices` paketi eklendi
 
 ## Gelecek Geliştirmeler (İsteğe Bağlı)
 
 ### Henüz Eklenmemiş Öneriler:
-1. **Network Statistics Module**
+
+1. **Security Management Module (Planlanıyor)**
+   - Windows Defender aktif/deaktif etme
+   - Firewall profil yönetimi (Domain/Private/Public)
+   - Firewall kural ekleme/silme/listeleme
+   - Defender imza güncellemeleri
+   - Antivirüs durumu kontrolü
+   - **Yeni AgentRights eklendi:**
+     - `ViewSecurity` (0x800000) - Güvenlik durumunu görüntüleme
+     - `ManageSecurity` (0x1000000) - Güvenlik ayarlarını yönetme
+
+2. **Network Statistics Module**
    - Network interface metrikleri
    - Bandwidth kullanımı
    - Connection tracking
 
-2. **USB Device Control Module**
+3. **USB Device Control Module**
    - USB cihaz tespit
    - Whitelist/blacklist
    - Mount/unmount kontrolü
 
-3. **System Tray Application**
+4. **System Tray Application (Opsiyonel)**
    - Icon ve menu
    - Quick actions
    - Notifications
+   - Service status gösterimi
 
-4. **Windows Service Installer**
-   - MSI/EXE installer
-   - Service kaydı
+5. **MSI/EXE Installer (Opsiyonel)**
+   - WiX veya Inno Setup
+   - Otomatik service kurulumu
+   - Yapılandırma wizard'ı
    - Auto-update desteği
 
-5. **Unit Tests**
+6. **Unit Tests**
    - xUnit test projeleri
    - Mock implementasyonları
    - Integration testleri
+
+### Güvenlik Yönetimi Komutları (Planlanan)
+
+Agent'ın güvenlik ayarlarını yönetmek için aşağıdaki komutlar planlanmaktadır:
+
+#### Windows Defender Yönetimi
+```json
+// Defender'ı aktif et
+{
+  "action": "enabledefender",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {}
+}
+
+// Defender'ı devre dışı bırak
+{
+  "action": "disabledefender",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {}
+}
+
+// Defender imzalarını güncelle
+{
+  "action": "updatedefendersignatures",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {}
+}
+```
+
+#### Firewall Yönetimi
+```json
+// Firewall'u aktif et (tüm profiller veya belirli profil)
+{
+  "action": "enablefirewall",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {
+    "profile": "all"  // all, domain, private, public
+  }
+}
+
+// Firewall'u devre dışı bırak
+{
+  "action": "disablefirewall",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {
+    "profile": "public"
+  }
+}
+
+// Firewall kuralı ekle
+{
+  "action": "addfirewallrule",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {
+    "name": "Allow HTTP",
+    "direction": "in",        // in, out
+    "action": "allow",        // allow, block
+    "protocol": "TCP",        // TCP, UDP, ANY
+    "port": "80",
+    "program": "C:\\Program Files\\MyApp\\app.exe",  // opsiyonel
+    "profile": "any"          // any, domain, private, public
+  }
+}
+
+// Firewall kuralı sil
+{
+  "action": "removefirewallrule",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {
+    "name": "Allow HTTP"
+  }
+}
+
+// Firewall kurallarını listele
+{
+  "action": "getfirewallrules",
+  "nodeId": "node1",
+  "sessionId": "session1",
+  "payload": {
+    "filter": "HTTP"  // opsiyonel, isim filtresi
+  }
+}
+```
+
+**Yanıt Örneği:**
+```json
+{
+  "success": true,
+  "rules": [
+    {
+      "name": "Allow HTTP",
+      "enabled": "Yes",
+      "direction": "In",
+      "profiles": "Domain,Private,Public",
+      "action": "Allow",
+      "protocol": "TCP",
+      "localPort": "80"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Teknik Detaylar
+- **PowerShell Komutları:** `Set-MpPreference`, `Update-MpSignature`
+- **Netsh Komutları:** `netsh advfirewall set/add/delete`
+- **Yetki Gereksinimleri:**
+  - `ManageSecurity` (0x1000000) - Defender/Firewall yönetimi için
+  - `ViewSecurity` (0x800000) - Durum görüntüleme için
+- **Elevation:** Tüm yönetim komutları Administrator yetkisi gerektirir
+- **Audit Logging:** Tüm güvenlik değişiklikleri audit log'a kaydedilir
 
 ## Sonuç
 YeniAgent artık enterprise-grade bir remote management agent haline gelmiştir. Eklenen özellikler:
@@ -539,7 +726,37 @@ YeniAgent artık enterprise-grade bir remote management agent haline gelmiştir.
 ✅ Granular yetkilendirme sistemi (AgentRights)
 ✅ Production-ready WebSocket transport
 ✅ Custom branding (olmez.ico)
+✅ **Windows Service desteği (Console + Service mode)**
 ✅ 0 hata, 0 uyarı ile başarılı build
+
+### Deployment Seçenekleri
+
+**1. Standalone Mode (Console):**
+```bash
+# Doğrudan çalıştır
+olmez.exe
+
+# Development modunda çalıştır
+dotnet run --project AgentHost
+```
+
+**2. Windows Service Mode:**
+```bash
+# Administrator olarak çalıştırın
+olmez.exe --install-service    # Kur
+sc start olmezAgent             # Başlat
+sc query olmezAgent             # Durum kontrol
+olmez.exe --uninstall-service   # Kaldır
+```
+
+**3. Auto-Start Yapılandırması:**
+```bash
+# Windows başlangıcında otomatik
+sc config olmezAgent start=auto
+
+# Manuel başlatma
+sc config olmezAgent start=demand
+```
 
 ### Karşılaştırma: MeshCentral vs OlmezAgent
 
@@ -556,6 +773,9 @@ YeniAgent artık enterprise-grade bir remote management agent haline gelmiştir.
 | Granular Rights | ⚠️ Basic | ✅ | Better |
 | Health Metrics | ⚠️ Basic | ✅ | Better |
 | Audit Trail | ⚠️ Limited | ✅ | Better |
+| Windows Service | ✅ | ✅ | Parity |
+| Console Mode | ✅ | ✅ | Parity |
+| Service Management | ✅ GUI | ✅ CLI | Different |
 | Platform | Cross-platform | Windows | Different |
 | Tech Stack | Node.js | .NET 8.0 | Different |
 | Memory Usage | ~200-300MB | ~150MB | Better |

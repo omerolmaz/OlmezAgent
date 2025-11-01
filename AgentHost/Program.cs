@@ -6,6 +6,28 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Formatting.Compact;
 
+// Komut satırı argümanlarını kontrol et
+if (args.Length > 0)
+{
+    var command = args[0].ToLowerInvariant();
+    switch (command)
+    {
+        case "--install-service":
+        case "-install":
+            return await ServiceInstaller.InstallServiceAsync();
+        
+        case "--uninstall-service":
+        case "-uninstall":
+            return await ServiceInstaller.UninstallServiceAsync();
+        
+        case "--help":
+        case "-h":
+        case "/?":
+            ServiceInstaller.ShowHelp();
+            return 0;
+    }
+}
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -27,6 +49,12 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Windows Service desteği ekle
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "olmezAgent";
+});
 
 // Use Serilog
 builder.Services.AddSerilog();
@@ -60,13 +88,15 @@ var host = builder.Build();
 
 try
 {
-    Log.Information("Agent başlatılıyor...");
+    Log.Information("olmez Agent başlatılıyor... (Mode: {Mode})", 
+        Environment.UserInteractive ? "Console" : "Windows Service");
     host.Run();
+    return 0;
 }
 catch (Exception ex)
 {
     Log.Fatal(ex, "Agent beklenmedik bir hata ile sonlandı");
-    throw;
+    return 1;
 }
 finally
 {

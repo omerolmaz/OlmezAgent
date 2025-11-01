@@ -40,6 +40,8 @@ public enum AgentRights : ulong
     RemoteCommands = 1048576,
     ResetOff = 2097152,
     GuestSharing = 4194304,
+    ViewSecurity = 8388608,
+    ManageSecurity = 16777216,
 
     // Tam yetki
     FullAdministrator = ulong.MaxValue
