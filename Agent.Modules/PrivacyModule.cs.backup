@@ -1,0 +1,234 @@
+﻿using Agent.Abstractions;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Agent.Modules;
+
+public sealed class PrivacyModule : AgentModuleBase
+{
+    private static readonly IReadOnlyCollection<string> Actions = new[]
+    {
+        "privacybarshow",
+        "privacybarhide"
+    };
+
+    private PrivacyBarForm? _privacyBar;
+    private readonly SemaphoreSlim _lock = new(1, 1);
+
+    public PrivacyModule(ILogger<PrivacyModule> logger) : base(logger)
+    {
+    }
+
+    public override string Name => "PrivacyModule";
+
+    public override IReadOnlyCollection<string> SupportedActions => Actions;
+
+    public override async Task<bool> HandleAsync(AgentCommand command, AgentContext context)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            await SendNotImplementedAsync(command, context, "Privacy bar is only supported on Windows.").ConfigureAwait(false);
+            return true;
+        }
+
+        switch (command.Action.ToLowerInvariant())
+        {
+            case "privacybarshow":
+                await HandlePrivacyBarShowAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "privacybarhide":
+                await HandlePrivacyBarHideAsync(command, context).ConfigureAwait(false);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private async Task HandlePrivacyBarShowAsync(AgentCommand command, AgentContext context)
+    {
+        await _lock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var message = command.Payload.TryGetProperty("message", out var msgElement) && msgElement.ValueKind == JsonValueKind.String
+                ? msgElement.GetString()
+                : "Uzaktan erişim aktif";
+
+            var username = command.Payload.TryGetProperty("username", out var userElement) && userElement.ValueKind == JsonValueKind.String
+                ? userElement.GetString()
+                : "Bilinmeyen kullanıcı";
+
+            if (_privacyBar == null || _privacyBar.IsDisposed)
+            {
+                var thread = new Thread(() =>
+                {
+                    _privacyBar = new PrivacyBarForm(message, username);
+                    _privacyBar.ShowDialog();
+                });
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+
+                // Form'un açılması için kısa bir bekleme
+                await Task.Delay(500).ConfigureAwait(false);
+
+                Logger.LogInformation("Privacy bar gösteriliyor: {Message}", message);
+            }
+            else
+            {
+                _privacyBar.UpdateMessage(message, username);
+            }
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action,
+                command.NodeId,
+                command.SessionId,
+                new JsonObject
+                {
+                    ["shown"] = true,
+                    ["message"] = message,
+                    ["username"] = username
+                })).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    private async Task HandlePrivacyBarHideAsync(AgentCommand command, AgentContext context)
+    {
+        await _lock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_privacyBar != null && !_privacyBar.IsDisposed)
+            {
+                _privacyBar.Invoke(new Action(() =>
+                {
+                    _privacyBar.Close();
+                    _privacyBar.Dispose();
+                }));
+                _privacyBar = null;
+
+                Logger.LogInformation("Privacy bar gizlendi");
+            }
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action,
+                command.NodeId,
+                command.SessionId,
+                new JsonObject { ["hidden"] = true })).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (_privacyBar != null && !_privacyBar.IsDisposed)
+        {
+            try
+            {
+                _privacyBar.Invoke(new Action(() =>
+                {
+                    _privacyBar.Close();
+                    _privacyBar.Dispose();
+                }));
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+        _lock.Dispose();
+        await base.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private sealed class PrivacyBarForm : Form
+    {
+        private Label _label;
+        private string _message;
+        private string _username;
+
+        public PrivacyBarForm(string message, string username)
+        {
+            _message = message;
+            _username = username;
+
+            // Form özellikleri
+            FormBorderStyle = FormBorderStyle.None;
+            BackColor = Color.Red;
+            Opacity = 0.8;
+            TopMost = true;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+
+            // Ekranın üst ortasına yerleştir
+            var screen = Screen.PrimaryScreen.Bounds;
+            Width = 600;
+            Height = 40;
+            Location = new Point((screen.Width - Width) / 2, 0);
+
+            // Label oluştur
+            _label = new Label
+            {
+                Text = $"{message} - {username}",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill
+            };
+
+            Controls.Add(_label);
+
+            // Otomatik kapatma için timer (30 saniye)
+            var timer = new System.Windows.Forms.Timer { Interval = 30000 };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                Close();
+            };
+            timer.Start();
+        }
+
+        public void UpdateMessage(string message, string username)
+        {
+            _message = message;
+            _username = username;
+
+            if (_label != null && !_label.IsDisposed)
+            {
+                Invoke(new Action(() =>
+                {
+                    _label.Text = $"{message} - {username}";
+                }));
+            }
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            // Klavye ve fare girişini engelleme (sadece görsel bildirim)
+            // Kullanıcı hala sistemi kullanabilir
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                // WS_EX_NOACTIVATE: Tıklandığında aktif hale gelme
+                cp.ExStyle |= 0x08000000;
+                return cp;
+            }
+        }
+    }
+}
