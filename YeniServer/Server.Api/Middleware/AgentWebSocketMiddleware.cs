@@ -710,7 +710,19 @@ public class AgentWebSocketMiddleware
                                     DateTime? installDate = null;
                                     if (el.TryGetProperty("installDate", out var idEl) && idEl.ValueKind == JsonValueKind.String)
                                     {
-                                        if (DateTime.TryParse(idEl.GetString(), out var dt)) installDate = dt;
+                                        if (DateTime.TryParse(idEl.GetString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                                        {
+                                            installDate = dt;
+                                        }
+                                    }
+
+                                    long? sizeInBytes = null;
+                                    if (el.TryGetProperty("sizeInBytes", out var sizeEl) && sizeEl.ValueKind == JsonValueKind.Number)
+                                    {
+                                        if (sizeEl.TryGetInt64(out var sizeVal))
+                                        {
+                                            sizeInBytes = sizeVal;
+                                        }
                                     }
 
                                     var soft = new Server.Domain.Entities.InstalledSoftware
@@ -722,6 +734,7 @@ public class AgentWebSocketMiddleware
                                         Version = el.TryGetProperty("version", out var verEl) && verEl.ValueKind == JsonValueKind.String ? verEl.GetString() : null,
                                         Publisher = el.TryGetProperty("publisher", out var pubEl) && pubEl.ValueKind == JsonValueKind.String ? pubEl.GetString() : null,
                                         InstallDate = installDate,
+                                        SizeInBytes = sizeInBytes,
                                         UninstallString = el.TryGetProperty("uninstallString", out var usEl) && usEl.ValueKind == JsonValueKind.String ? usEl.GetString() : null,
                                         InstallLocation = el.TryGetProperty("installLocation", out var ilEl) && ilEl.ValueKind == JsonValueKind.String ? ilEl.GetString() : null,
                                         RegistryPath = el.TryGetProperty("registryPath", out var rpEl) && rpEl.ValueKind == JsonValueKind.String ? rpEl.GetString() : null

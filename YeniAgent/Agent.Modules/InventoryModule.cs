@@ -366,12 +366,39 @@ public sealed class InventoryModule : AgentModuleBase
                             continue;
                         }
 
+                        // Parse InstallDate from YYYYMMDD format if available
+                        var installDateStr = appKey.GetValue("InstallDate") as string;
+                        DateTime? installDate = null;
+                        if (!string.IsNullOrWhiteSpace(installDateStr) && installDateStr.Length == 8)
+                        {
+                            if (DateTime.TryParseExact(installDateStr, "yyyyMMdd", 
+                                System.Globalization.CultureInfo.InvariantCulture, 
+                                System.Globalization.DateTimeStyles.None, out var parsedDate))
+                            {
+                                installDate = parsedDate;
+                            }
+                        }
+
+                        // Get size in KB from registry (EstimatedSize is in KB)
+                        long? sizeInBytes = null;
+                        var estimatedSize = appKey.GetValue("EstimatedSize");
+                        if (estimatedSize != null)
+                        {
+                            try
+                            {
+                                var sizeKb = Convert.ToInt64(estimatedSize);
+                                sizeInBytes = sizeKb * 1024; // Convert KB to bytes
+                            }
+                            catch { /* Ignore conversion errors */ }
+                        }
+
                         var entry = new JsonObject
                         {
                             ["name"] = displayName,
                             ["version"] = appKey.GetValue("DisplayVersion") as string,
                             ["publisher"] = appKey.GetValue("Publisher") as string,
-                            ["installDate"] = appKey.GetValue("InstallDate") as string,
+                            ["installDate"] = installDate?.ToString("o"), // ISO 8601 format
+                            ["sizeInBytes"] = sizeInBytes,
                             ["uninstallString"] = appKey.GetValue("UninstallString") as string
                         };
                         result.Add(entry);

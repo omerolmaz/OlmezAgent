@@ -61,6 +61,7 @@ public class CommandService : ICommandService
             CommandType = request.CommandType,
             Category = category,
             Parameters = request.Parameters,
+            SessionId = request.SessionId,
             Status = "Pending",
             Priority = 0, // Normal priority by default
             CreatedAt = DateTime.UtcNow
@@ -114,6 +115,7 @@ public class CommandService : ICommandService
             UserId = command.UserId,
             CommandType = command.CommandType,
             Parameters = command.Parameters,
+            SessionId = command.SessionId,
             Status = command.Status,
             Result = command.Result,
             CreatedAt = command.CreatedAt,

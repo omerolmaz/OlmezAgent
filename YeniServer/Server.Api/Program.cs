@@ -20,7 +20,13 @@ builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICommandService, CommandService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
-builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
+
+// Active Directory Service - Windows only
+if (OperatingSystem.IsWindows())
+{
+    builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
+}
+
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 
 // Add Agent Connection Manager (Singleton - tüm uygulama boyunca tek instance)

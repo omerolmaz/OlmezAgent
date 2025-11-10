@@ -58,7 +58,16 @@ public class InventoryController : ControllerBase
     public async Task<IActionResult> GetInstalledSoftware(Guid deviceId)
     {
         var software = await _inventoryService.GetInstalledSoftwareAsync(deviceId);
-        return Ok(software);
+        var result = software.Select(s => new
+        {
+            s.Name,
+            s.Version,
+            s.Publisher,
+            s.InstallDate,
+            s.InstallLocation,
+            SizeMb = s.SizeInBytes.HasValue ? Math.Round(s.SizeInBytes.Value / 1024.0 / 1024.0, 2) : (double?)null
+        });
+        return Ok(result);
     }
 
     /// <summary>
@@ -68,7 +77,14 @@ public class InventoryController : ControllerBase
     public async Task<IActionResult> GetInstalledPatches(Guid deviceId)
     {
         var patches = await _inventoryService.GetInstalledPatchesAsync(deviceId);
-        return Ok(patches);
+        var result = patches.Select(p => new
+        {
+            KbNumber = p.HotFixId,
+            Title = p.Description ?? p.HotFixId,
+            InstallDate = p.InstalledOn,
+            p.Description
+        });
+        return Ok(result);
     }
 
     /// <summary>

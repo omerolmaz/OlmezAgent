@@ -78,11 +78,17 @@ dist/
 dist-ssr/
 *.local
 
+# YeniWeb - embedded git repo
+YeniWeb/.git/
+
 # MeshCentral specific
 meshcentral-data/
 meshcentral-files/
 meshcentral-backups/
 MeshCentral-Paket-*/
+
+# Ignore other projects (not starting with "Yeni")
+tacticalrmm-develop/
 
 # OS specific
 .DS_Store

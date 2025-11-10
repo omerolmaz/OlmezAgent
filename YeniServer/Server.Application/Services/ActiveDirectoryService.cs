@@ -1,6 +1,7 @@
 using System.DirectoryServices;
 using System.DirectoryServices.ActiveDirectory;
 using System.DirectoryServices.AccountManagement;
+using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
 using Server.Application.Common;
 using Server.Application.DTOs.ActiveDirectory;
@@ -18,6 +19,7 @@ public interface IActiveDirectoryService
     Task<Result<bool>> TestConnectionAsync();
 }
 
+[SupportedOSPlatform("windows")]
 public class ActiveDirectoryService : IActiveDirectoryService
 {
     private readonly ILogger<ActiveDirectoryService> _logger;

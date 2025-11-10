@@ -1,4 +1,4 @@
-﻿using Agent.Abstractions;
+using Agent.Abstractions;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -9,12 +9,15 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Agent.Modules;
 
+/// <summary>
+/// Captures the local desktop and forwards keyboard/mouse events coming from the server.
+/// The implementation intentionally mirrors MeshCentral semantics so the server can drive it easily.
+/// </summary>
 public sealed class DesktopModule : AgentModuleBase
 {
     private static readonly IReadOnlyCollection<string> Actions = new[]
@@ -84,9 +87,9 @@ public sealed class DesktopModule : AgentModuleBase
 
     private async Task HandleDesktopStartAsync(AgentCommand command, AgentContext context)
     {
-        var sessionId = command.SessionId ?? Guid.NewGuid().ToString();
-        
-        // Payload güvenli kontrolü
+        var requestedSessionId = ResolveSessionId(command);
+        var sessionId = !string.IsNullOrWhiteSpace(requestedSessionId) ? requestedSessionId! : Guid.NewGuid().ToString();
+
         int quality = 60;
         if (command.Payload.ValueKind == JsonValueKind.Object)
         {
@@ -105,7 +108,7 @@ public sealed class DesktopModule : AgentModuleBase
         var session = new DesktopSession(sessionId, quality);
         _sessions[sessionId] = session;
 
-        var bounds = Screen.PrimaryScreen.Bounds;
+        var bounds = Screen.PrimaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
         await context.ResponseWriter.SendAsync(new CommandResult(
             command.Action,
             command.CommandId,
@@ -120,16 +123,16 @@ public sealed class DesktopModule : AgentModuleBase
                 ["quality"] = quality
             })).ConfigureAwait(false);
 
-        Logger.LogInformation("Desktop session başlatıldı: {SessionId}, Quality: {Quality}", sessionId, quality);
+        Logger.LogInformation("Desktop session started: {SessionId} (Quality={Quality})", sessionId, quality);
     }
 
     private async Task HandleDesktopStopAsync(AgentCommand command, AgentContext context)
     {
-        var sessionId = command.SessionId ?? "";
+        var sessionId = ResolveSessionId(command) ?? string.Empty;
         if (_sessions.TryRemove(sessionId, out var session))
         {
             session.Dispose();
-            Logger.LogInformation("Desktop session durduruldu: {SessionId}", sessionId);
+            Logger.LogInformation("Desktop session stopped: {SessionId}", sessionId);
         }
 
         await context.ResponseWriter.SendAsync(new CommandResult(
@@ -146,7 +149,7 @@ public sealed class DesktopModule : AgentModuleBase
 
     private async Task HandleDesktopFrameAsync(AgentCommand command, AgentContext context)
     {
-        var sessionId = command.SessionId ?? "";
+        var sessionId = ResolveSessionId(command) ?? string.Empty;
         if (!_sessions.TryGetValue(sessionId, out var session))
         {
             await SendNotImplementedAsync(command, context, $"Desktop session '{sessionId}' not found.").ConfigureAwait(false);
@@ -170,7 +173,7 @@ public sealed class DesktopModule : AgentModuleBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Frame yakalama hatası");
+            Logger.LogError(ex, "Desktop frame capture failed for session {SessionId}", sessionId);
             await SendNotImplementedAsync(command, context, $"Frame capture failed: {ex.Message}").ConfigureAwait(false);
         }
     }
@@ -185,7 +188,6 @@ public sealed class DesktopModule : AgentModuleBase
 
         var x = xElement.GetInt32();
         var y = yElement.GetInt32();
-
         NativeMethods.SetCursorPos(x, y);
 
         await context.ResponseWriter.SendAsync(new CommandResult(
@@ -205,7 +207,7 @@ public sealed class DesktopModule : AgentModuleBase
     {
         var button = command.Payload.TryGetProperty("button", out var buttonElement) && buttonElement.ValueKind == JsonValueKind.Number
             ? buttonElement.GetInt32()
-            : 0; // 0 = left, 1 = right, 2 = middle
+            : 0;
 
         uint downFlag = button switch
         {
@@ -222,7 +224,6 @@ public sealed class DesktopModule : AgentModuleBase
         };
 
         NativeMethods.mouse_event(downFlag, 0, 0, 0, 0);
-        Thread.Sleep(50);
         NativeMethods.mouse_event(upFlag, 0, 0, 0, 0);
 
         await context.ResponseWriter.SendAsync(new CommandResult(
@@ -331,7 +332,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         public byte[] CaptureFrame()
         {
-            var bounds = Screen.PrimaryScreen.Bounds;
+            var bounds = Screen.PrimaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
             using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             using var graphics = Graphics.FromImage(bitmap);
             graphics.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
@@ -360,7 +361,7 @@ public sealed class DesktopModule : AgentModuleBase
 
         public void Dispose()
         {
-            // Cleanup if needed
+            // nothing to release yet
         }
     }
 
@@ -382,5 +383,22 @@ public sealed class DesktopModule : AgentModuleBase
 
         [DllImport("user32.dll")]
         public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+    }
+
+    private string? ResolveSessionId(AgentCommand command)
+    {
+        if (!string.IsNullOrWhiteSpace(command.SessionId))
+        {
+            return command.SessionId;
+        }
+
+        if (command.Payload.ValueKind == JsonValueKind.Object &&
+            command.Payload.TryGetProperty("sessionId", out var sessionElement) &&
+            sessionElement.ValueKind == JsonValueKind.String)
+        {
+            return sessionElement.GetString();
+        }
+
+        return null;
     }
 }

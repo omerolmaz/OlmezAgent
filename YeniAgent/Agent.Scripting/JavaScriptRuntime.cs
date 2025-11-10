@@ -107,8 +107,8 @@ public sealed class JavaScriptRuntime : IAsyncDisposable
             if (_disposed || _engine == null) return Array.Empty<string>();
             return Directory.EnumerateFiles(_scriptsDirectory, "*.js", SearchOption.TopDirectoryOnly)
                 .Select(Path.GetFileName)
-                .Where(name => !string.Equals(name, "agent.js", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
+                .Where(name => !string.IsNullOrEmpty(name) && !string.Equals(name, "agent.js", StringComparison.OrdinalIgnoreCase))
+                .ToArray()!;
         }
     }
 

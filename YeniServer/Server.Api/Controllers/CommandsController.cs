@@ -75,6 +75,7 @@ public class CommandsController : ControllerBase
             {
                 action = request.CommandType,
                 commandId = result.Data.Id,
+                sessionId = request.SessionId ?? result.Data.SessionId,
                 timestamp = DateTime.UtcNow,
                 parameters = request.Parameters
             };

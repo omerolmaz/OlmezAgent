@@ -68,7 +68,7 @@ public sealed class PrivacyModule : AgentModuleBase
             {
                 var thread = new Thread(() =>
                 {
-                    _privacyBar = new PrivacyBarForm(message, username);
+                    _privacyBar = new PrivacyBarForm(message ?? "Uzaktan erişim aktif", username ?? "Bilinmeyen kullanıcı");
                     _privacyBar.ShowDialog();
                 });
                 thread.SetApartmentState(ApartmentState.STA);
@@ -81,7 +81,7 @@ public sealed class PrivacyModule : AgentModuleBase
             }
             else
             {
-                _privacyBar.UpdateMessage(message, username);
+                _privacyBar.UpdateMessage(message ?? "Uzaktan erişim aktif", username ?? "Bilinmeyen kullanıcı");
             }
 
             await context.ResponseWriter.SendAsync(new CommandResult(
@@ -173,7 +173,7 @@ public sealed class PrivacyModule : AgentModuleBase
             StartPosition = FormStartPosition.Manual;
 
             // Ekranın üst ortasına yerleştir
-            var screen = Screen.PrimaryScreen.Bounds;
+            var screen = Screen.PrimaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
             Width = 600;
             Height = 40;
             Location = new Point((screen.Width - Width) / 2, 0);

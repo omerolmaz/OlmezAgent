@@ -108,7 +108,7 @@ public sealed class AuditModule : AgentModuleBase
         }
     }
 
-    private async Task RotateAuditLogAsync()
+    private Task RotateAuditLogAsync()
     {
         try
         {
@@ -135,6 +135,8 @@ public sealed class AuditModule : AgentModuleBase
         {
             Logger.LogError(ex, "Failed to rotate audit log");
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task HandleGetAuditLogsAsync(AgentCommand command, AgentContext context)

@@ -7,6 +7,7 @@ public class CommandDto
     public Guid UserId { get; set; }
     public string CommandType { get; set; } = string.Empty;
     public string? Parameters { get; set; }
+    public string? SessionId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Result { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -18,6 +19,7 @@ public class ExecuteCommandRequest
     public Guid DeviceId { get; set; }
     public string CommandType { get; set; } = string.Empty;
     public string? Parameters { get; set; }
+    public string? SessionId { get; set; }
 }
 
 public class CommandResultRequest
