@@ -14,7 +14,7 @@ export const deviceService = {
   // Get all devices
   getDevices: async (): Promise<Device[]> => {
     try {
-      const response = await apiService.get<Device[]>('/api/devices');
+      const response = await apiService.get<Device[]>('/devices');
       return response.map(normalizeDevice);
     } catch (error) {
       console.error('Error fetching devices:', error);
@@ -25,7 +25,7 @@ export const deviceService = {
   // Get device by ID
   getDeviceById: async (id: string): Promise<Device> => {
     try {
-      const response = await apiService.get<Device>(`/api/devices/${id}`);
+      const response = await apiService.get<Device>(`/devices/${id}`);
       return normalizeDevice(response);
     } catch (error) {
       console.error('Error fetching device:', error);
@@ -36,7 +36,7 @@ export const deviceService = {
   // Get devices by group
   getDevicesByGroup: async (groupId: string): Promise<Device[]> => {
     try {
-      const response = await apiService.get<Device[]>(`/api/devices/group/${groupId}`);
+      const response = await apiService.get<Device[]>(`/devices/group/${groupId}`);
       return response.map(normalizeDevice);
     } catch (error) {
       console.error('Error fetching devices by group:', error);
@@ -47,7 +47,7 @@ export const deviceService = {
   // Delete device
   deleteDevice: async (id: string): Promise<void> => {
     try {
-      await apiService.delete(`/api/devices/${id}`);
+      await apiService.delete(`/devices/${id}`);
     } catch (error) {
       console.error('Error deleting device:', error);
       throw error;
@@ -57,7 +57,7 @@ export const deviceService = {
   // Get device connection status
   getDeviceStatus: async (deviceId: string): Promise<DeviceConnectionStatus['data']> => {
     try {
-      const response = await apiService.get<DeviceConnectionStatus>(`/api/commands/status/${deviceId}`);
+      const response = await apiService.get<DeviceConnectionStatus>(`/commands/status/${deviceId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching device status:', error);
@@ -100,4 +100,5 @@ function parseConnectionStatus(value: number | ConnectionStatus): ConnectionStat
       return 'Disconnected';
   }
 }
+
 

@@ -3,20 +3,21 @@ import type { ADDomainInfo, ADComputer, ADUser } from '../types/activeDirectory.
 
 export const activeDirectoryService = {
   async testConnection(): Promise<{ connected: boolean; message: string }> {
-    return apiService.get('/api/activedirectory/test');
+    return apiService.get('/activedirectory/test');
   },
 
   async getDomainInfo(): Promise<ADDomainInfo> {
-    return apiService.get('/api/activedirectory/domain-info');
+    return apiService.get('/activedirectory/domain-info');
   },
 
   async getUsers(filter?: string): Promise<ADUser[]> {
-    return apiService.get('/api/activedirectory/users', filter ? { filter } : undefined);
+    return apiService.get('/activedirectory/users', filter ? { filter } : undefined);
   },
 
   async getComputers(filter?: string): Promise<ADComputer[]> {
-    return apiService.get('/api/activedirectory/computers', filter ? { filter } : undefined);
+    return apiService.get('/activedirectory/computers', filter ? { filter } : undefined);
   },
 };
 
 export default activeDirectoryService;
+

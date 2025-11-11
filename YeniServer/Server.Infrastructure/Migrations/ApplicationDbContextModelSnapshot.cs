@@ -170,7 +170,7 @@ namespace Server.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
@@ -222,8 +222,7 @@ namespace Server.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Parameters")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -245,7 +244,7 @@ namespace Server.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
@@ -624,6 +623,9 @@ namespace Server.Infrastructure.Migrations
                     b.Property<string>("Publisher")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("QuietUninstallString")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("RegistryPath")
                         .HasColumnType("nvarchar(450)");
 
@@ -911,8 +913,7 @@ namespace Server.Infrastructure.Migrations
                     b.HasOne("Server.Domain.Entities.User", "User")
                         .WithMany("AuditLogs")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Command");
 
@@ -932,8 +933,7 @@ namespace Server.Infrastructure.Migrations
                     b.HasOne("Server.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Device");
 

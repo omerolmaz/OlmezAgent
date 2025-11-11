@@ -29,7 +29,7 @@ export const agentInstallerService = {
       enrollmentKey: request.enrollmentKey,
     });
 
-    return apiService.getBlob('/api/agentinstaller/download/windows', params);
+    return apiService.getBlob('/agentinstaller/download/windows', params);
   },
 
   async downloadGpoPackage(request: GpoPackageRequest): Promise<Blob> {
@@ -38,8 +38,9 @@ export const agentInstallerService = {
       groupName: request.groupName,
     });
 
-    return apiService.getBlob('/api/agentinstaller/download/gpo', params);
+    return apiService.getBlob('/agentinstaller/download/gpo', params);
   },
 };
 
 export default agentInstallerService;
+

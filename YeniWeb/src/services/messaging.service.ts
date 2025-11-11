@@ -33,7 +33,7 @@ async function sendMessagingCommand(
   deviceId: string,
   payload?: unknown,
 ) {
-  const response = await apiService.post<{ id: string }>(`/api/messaging/${action}/${deviceId}`, payload ?? {});
+  const response = await apiService.post<{ id: string }>(`/messaging/${action}/${deviceId}`, payload ?? {});
   return commandService.waitForCommand(response.id);
 }
 
@@ -53,6 +53,11 @@ export const messagingService = {
   sendChatMessage(deviceId: string, payload: ChatRequest) {
     return sendMessagingCommand('chat', deviceId, payload);
   },
+  async getChatMessages(deviceId: string) {
+    const response = await apiService.get<Array<{ sender: string; message: string; timestamp: string }>>(`/messaging/chat/${deviceId}/messages`);
+    return response;
+  },
 };
 
 export default messagingService;
+

@@ -8,7 +8,7 @@ async function runDiagnostic<T = Record<string, unknown>>(
   deviceId: string,
   command: DiagnosticCommand,
 ): Promise<CommandResultPayload<T>> {
-  const response = await apiService.post<{ id: string }>(`/api/diagnostics/${command}/${deviceId}`);
+  const response = await apiService.post<{ id: string }>(`/diagnostics/${command}/${deviceId}`);
   const commandRecord = await commandService.waitForCommand(response.id, { timeoutMs: 10000, pollIntervalMs: 500 });
   const parsed = commandRecord.result ? (JSON.parse(commandRecord.result) as T) : undefined;
 
@@ -39,5 +39,6 @@ export const diagnosticsService = {
 };
 
 export default diagnosticsService;
+
 
 

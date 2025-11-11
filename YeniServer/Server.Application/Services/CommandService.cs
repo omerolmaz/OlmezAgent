@@ -37,7 +37,7 @@ public class CommandService : ICommandService
         return Result<List<CommandDto>>.Ok(dtos);
     }
 
-    public async Task<Result<CommandDto>> ExecuteCommandAsync(ExecuteCommandRequest request, Guid userId)
+    public async Task<Result<CommandDto>> ExecuteCommandAsync(ExecuteCommandRequest request, Guid? userId)
     {
         // Validate command type
         if (!AgentCommands.IsValidCommand(request.CommandType))
@@ -57,7 +57,7 @@ public class CommandService : ICommandService
         {
             Id = Guid.NewGuid(),
             DeviceId = request.DeviceId,
-            UserId = userId,
+            UserId = userId, // nullable
             CommandType = request.CommandType,
             Category = category,
             Parameters = request.Parameters,

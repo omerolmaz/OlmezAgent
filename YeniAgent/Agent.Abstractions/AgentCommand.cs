@@ -17,7 +17,7 @@ public sealed record AgentCommand(
 {
     public static AgentCommand FromEnvelope(CommandEnvelope envelope, CancellationToken token) =>
         new(
-            envelope.Action,
+            envelope.GetAction(),
             envelope.CommandId,
             envelope.NodeId,
             envelope.SessionId,
@@ -75,8 +75,13 @@ public sealed record AgentCommand(
 /// Gelen JSON mesajının ham halini tutar.
 /// </summary>
 public sealed record CommandEnvelope(
-    [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("commandType")] string? CommandType,
+    [property: JsonPropertyName("action")] string? Action,
     [property: JsonPropertyName("commandId")] string CommandId,
-    [property: JsonPropertyName("nodeid")] string? NodeId,
-    [property: JsonPropertyName("sessionid")] string? SessionId,
-    [property: JsonPropertyName("parameters")] JsonElement Payload);
+    [property: JsonPropertyName("nodeId")] string? NodeId,
+    [property: JsonPropertyName("sessionId")] string? SessionId,
+    [property: JsonPropertyName("parameters")] JsonElement Payload)
+{
+    // commandType veya action'dan birini kullan (commandType öncelikli)
+    public string GetAction() => CommandType ?? Action ?? string.Empty;
+};

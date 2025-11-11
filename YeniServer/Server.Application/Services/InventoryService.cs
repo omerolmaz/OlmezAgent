@@ -90,6 +90,9 @@ public class InventoryService : IInventoryService
 
     public async Task<Guid> RequestInventoryRefreshAsync(Guid deviceId, Guid userId)
     {
+        // Convert Guid.Empty to null for nullable UserId
+        Guid? nullableUserId = userId == Guid.Empty ? null : userId;
+        
         var command = await _commandService.ExecuteCommandAsync(
             new ExecuteCommandRequest
             {
@@ -97,7 +100,7 @@ public class InventoryService : IInventoryService
                 CommandType = "getfullinventory",
                 Parameters = "{}"
             },
-            userId);
+            nullableUserId);
 
         if (!command.Success || command.Data == null)
         {

@@ -58,6 +58,8 @@ export interface InstalledSoftware {
   publisher?: string;
   installDate?: string;
   sizeMb?: number;
+  uninstallString?: string;
+  sizeInBytes?: number;
 }
 
 export interface PatchInfo {
@@ -183,3 +185,4 @@ export interface NetworkInterfaceMetrics {
   speedMbps?: number;
   isUp: boolean;
 }
+

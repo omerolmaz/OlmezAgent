@@ -3,6 +3,7 @@ using Server.Application.Interfaces;
 using Server.Application.DTOs.Command;
 using Server.Api.Services;
 using System.Text.Json;
+using System.Collections.Concurrent;
 
 namespace Server.Api.Controllers;
 
@@ -16,6 +17,7 @@ public class MessagingController : ControllerBase
     private readonly ICommandService _commandService;
     private readonly AgentConnectionManager _connectionManager;
     private readonly ILogger<MessagingController> _logger;
+    private static readonly ConcurrentDictionary<Guid, List<ChatMessageDto>> _chatCache = new();
 
     public MessagingController(
         ICommandService commandService,
@@ -28,25 +30,7 @@ public class MessagingController : ControllerBase
     }
 
     /// <summary>
-    /// Agent mesajı gönder
-    /// </summary>
-    [HttpPost("agentmsg/{deviceId}")]
-    public async Task<IActionResult> SendAgentMessage(Guid deviceId, [FromBody] MessageRequest request)
-    {
-        return await ExecuteCommand(deviceId, "agentmsg", request);
-    }
-
-    /// <summary>
-    /// Windows message box göster
-    /// </summary>
-    [HttpPost("messagebox/{deviceId}")]
-    public async Task<IActionResult> ShowMessageBox(Guid deviceId, [FromBody] MessageBoxRequest request)
-    {
-        return await ExecuteCommand(deviceId, "messagebox", request);
-    }
-
-    /// <summary>
-    /// Bildirim göster
+    /// Bildirim göster (Toast)
     /// </summary>
     [HttpPost("notify/{deviceId}")]
     public async Task<IActionResult> ShowNotification(Guid deviceId, [FromBody] NotificationRequest request)
@@ -55,21 +39,60 @@ public class MessagingController : ControllerBase
     }
 
     /// <summary>
-    /// Toast bildirimi göster
-    /// </summary>
-    [HttpPost("toast/{deviceId}")]
-    public async Task<IActionResult> ShowToast(Guid deviceId, [FromBody] ToastRequest request)
-    {
-        return await ExecuteCommand(deviceId, "toast", request);
-    }
-
-    /// <summary>
     /// Chat mesajı gönder
     /// </summary>
     [HttpPost("chat/{deviceId}")]
     public async Task<IActionResult> SendChat(Guid deviceId, [FromBody] ChatRequest request)
     {
-        return await ExecuteCommand(deviceId, "chat", request);
+        // sender alanını ekle
+        var payload = new
+        {
+            message = request.Message,
+            sender = request.FromUser ?? "Server",
+            timestamp = DateTime.UtcNow
+        };
+        
+        // Cache'e ekle
+        var chatMsg = new ChatMessageDto
+        {
+            Sender = request.FromUser ?? "Server",
+            Message = request.Message,
+            Timestamp = DateTime.UtcNow.ToString("O")
+        };
+        _chatCache.AddOrUpdate(deviceId, 
+            new List<ChatMessageDto> { chatMsg }, 
+            (key, list) => { list.Add(chatMsg); return list; });
+        
+        return await ExecuteCommand(deviceId, "chat", payload);
+    }
+
+    /// <summary>
+    /// Chat mesajlarını getir
+    /// </summary>
+    [HttpGet("chat/{deviceId}/messages")]
+    public IActionResult GetChatMessages(Guid deviceId)
+    {
+        if (_chatCache.TryGetValue(deviceId, out var messages))
+        {
+            return Ok(messages);
+        }
+        return Ok(new List<ChatMessageDto>());
+    }
+
+    /// <summary>
+    /// Agent'tan gelen chat mesajını cache'e ekle (internal kullanım)
+    /// </summary>
+    public static void AddAgentChatMessage(Guid deviceId, string sender, string message)
+    {
+        var chatMsg = new ChatMessageDto
+        {
+            Sender = sender,
+            Message = message,
+            Timestamp = DateTime.UtcNow.ToString("O")
+        };
+        _chatCache.AddOrUpdate(deviceId, 
+            new List<ChatMessageDto> { chatMsg }, 
+            (key, list) => { list.Add(chatMsg); return list; });
     }
 
     private async Task<IActionResult> ExecuteCommand(Guid deviceId, string commandType, object? parameters = null)
@@ -92,12 +115,14 @@ public class MessagingController : ControllerBase
         if (!result.Success || result.Data == null)
             return BadRequest(new { error = result.ErrorMessage ?? "Failed to create command" });
 
+        // Agent'a gönderilecek komut
         var command = new
         {
             action = commandType,
-            commandId = result.Data.Id,
-            timestamp = DateTime.UtcNow,
-            parameters
+            commandId = result.Data.Id.ToString(),
+            nodeId = deviceId.ToString(),
+            sessionId = (string?)null,
+            parameters = parameters ?? new { }
         };
 
         var sent = await _connectionManager.SendCommandToAgentAsync(deviceId, command);
@@ -112,33 +137,21 @@ public class MessagingController : ControllerBase
     }
 }
 
-public class MessageRequest
-{
-    public string Message { get; set; } = string.Empty;
-}
-
-public class MessageBoxRequest
-{
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string Type { get; set; } = "info"; // info, warning, error
-}
-
 public class NotificationRequest
 {
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
 
-public class ToastRequest
-{
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public int Duration { get; set; } = 5000; // ms
-}
-
 public class ChatRequest
 {
     public string Message { get; set; } = string.Empty;
     public string? FromUser { get; set; }
+}
+
+public class ChatMessageDto
+{
+    public string Sender { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Timestamp { get; set; } = string.Empty;
 }

@@ -26,3 +26,4 @@ export interface ADDomainInfo {
   infrastructureRoleOwner: string;
   domainControllers: string[];
 }
+

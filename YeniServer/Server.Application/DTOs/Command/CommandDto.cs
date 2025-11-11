@@ -4,7 +4,7 @@ public class CommandDto
 {
     public Guid Id { get; set; }
     public Guid DeviceId { get; set; }
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; } // Nullable - commands can be executed without authentication
     public string CommandType { get; set; } = string.Empty;
     public string? Parameters { get; set; }
     public string? SessionId { get; set; }

@@ -1,4 +1,4 @@
-﻿import { apiService } from './api.service';
+import { apiService } from './api.service';
 import { commandService } from './command.service';
 import type { CommandResultPayload } from '../types/command.types';
 
@@ -51,17 +51,18 @@ async function invokeCommand<T = unknown>(method: 'GET' | 'POST' | 'DELETE', url
 
 export const scriptsService = {
   list(deviceId: string) {
-    return invokeCommand<ScriptListPayload>('GET', `/api/scripts/${deviceId}`);
+    return invokeCommand<ScriptListPayload>('GET', `/scripts/${deviceId}`);
   },
   deploy(deviceId: string, payload: ScriptDeployRequest) {
-    return invokeCommand<ScriptListPayload>('POST', `/api/scripts/deploy/${deviceId}`, payload);
+    return invokeCommand<ScriptListPayload>('POST', `/scripts/deploy/${deviceId}`, payload);
   },
   reload(deviceId: string) {
-    return invokeCommand<ScriptListPayload>('POST', `/api/scripts/reload/${deviceId}`);
+    return invokeCommand<ScriptListPayload>('POST', `/scripts/reload/${deviceId}`);
   },
   remove(deviceId: string, payload: ScriptRemoveRequest) {
-    return invokeCommand<ScriptListPayload>('DELETE', `/api/scripts/${deviceId}`, payload);
+    return invokeCommand<ScriptListPayload>('DELETE', `/scripts/${deviceId}`, payload);
   },
 };
 
 export default scriptsService;
+

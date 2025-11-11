@@ -5,16 +5,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Agent.Modules;
 
-/// <summary>
-/// Software management module for installing and uninstalling applications
-/// </summary>
 public sealed class SoftwareModule : AgentModuleBase
 {
     private static readonly IReadOnlyCollection<string> Actions = new[]
@@ -24,6 +22,8 @@ public sealed class SoftwareModule : AgentModuleBase
         "installwithchoco",
         "installchoco"
     };
+
+    private static readonly HttpClient HttpClient = new();
 
     public SoftwareModule(ILogger<SoftwareModule> logger) : base(logger)
     {
@@ -63,428 +63,645 @@ public sealed class SoftwareModule : AgentModuleBase
         }
     }
 
-    /// <summary>
-    /// Install software from local file (MSI, EXE, etc.)
-    /// </summary>
     private async Task HandleInstallSoftwareAsync(AgentCommand command, AgentContext context)
     {
         try
         {
-            var filePath = command.Data["filePath"]?.GetValue<string>();
-            var arguments = command.Data["arguments"]?.GetValue<string>() ?? "";
-            var timeout = command.Data["timeout"]?.GetValue<int>() ?? 1800; // 30 minutes default
-            var runAsUser = command.Data["runAsUser"]?.GetValue<bool>() ?? false;
+            string? filePath = null;
+            string? downloadUrl = null;
+            string? fileName = null;
+            string arguments = string.Empty;
+            int timeout = 1800;
+
+            if (command.Payload.TryGetProperty("filePath", out var filePathElem))
+                filePath = filePathElem.GetString();
+            if (command.Payload.TryGetProperty("downloadUrl", out var downloadUrlElem))
+                downloadUrl = downloadUrlElem.GetString();
+            if (command.Payload.TryGetProperty("fileName", out var fileNameElem))
+                fileName = fileNameElem.GetString();
+            if (command.Payload.TryGetProperty("arguments", out var argsElem))
+                arguments = argsElem.GetString() ?? string.Empty;
+            if (command.Payload.TryGetProperty("timeout", out var timeoutElem))
+                timeout = timeoutElem.GetInt32();
+
+            // URL'den indirme varsa önce dosyayı indir
+            if (!string.IsNullOrWhiteSpace(downloadUrl))
+            {
+                Logger.LogInformation("Downloading software from: {DownloadUrl}", downloadUrl);
+                
+                var tempDir = Path.Combine(Path.GetTempPath(), "OlmezAgent");
+                Directory.CreateDirectory(tempDir);
+                
+                fileName = fileName ?? Path.GetFileName(new Uri(downloadUrl).LocalPath);
+                filePath = Path.Combine(tempDir, fileName);
+
+                try
+                {
+                    using var httpClient = new HttpClient();
+                    httpClient.Timeout = TimeSpan.FromMinutes(10); // 10 dakika timeout
+
+                    Logger.LogInformation("Starting download to: {FilePath}", filePath);
+                    
+                    var response = await httpClient.GetAsync(downloadUrl).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+
+                    var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                    Logger.LogInformation("Download size: {Size} bytes", totalBytes);
+
+                    await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await using var downloadStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                    
+                    await downloadStream.CopyToAsync(fileStream).ConfigureAwait(false);
+                    
+                    Logger.LogInformation("Download completed: {FilePath}", filePath);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to download file from {DownloadUrl}", downloadUrl);
+                    var errorPayload = new JsonObject { 
+                        ["error"] = $"Download failed: {ex.Message}",
+                        ["downloadUrl"] = downloadUrl
+                    };
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action, command.CommandId, command.NodeId, command.SessionId,
+                        errorPayload, Success: false, Error: "DownloadFailed"))
+                        .ConfigureAwait(false);
+                    return;
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(filePath))
             {
-                await SendErrorAsync(command, context, "File path is required").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "File path or download URL is required" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "ValidationError"))
+                    .ConfigureAwait(false);
                 return;
             }
 
             if (!File.Exists(filePath))
             {
-                await SendErrorAsync(command, context, $"File not found: {filePath}").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = $"File not found: {filePath}" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "FileNotFound"))
+                    .ConfigureAwait(false);
                 return;
             }
 
             Logger.LogInformation("Installing software from: {FilePath}", filePath);
 
-            // Determine installer type and default arguments
-            var fileExt = Path.GetExtension(filePath).ToLowerInvariant();
-            var finalArgs = arguments;
-
-            if (string.IsNullOrWhiteSpace(finalArgs))
+            // TacticalRMM gibi: Kullanıcının gönderdiği parametreleri olduğu gibi kullan
+            var psi = new ProcessStartInfo
             {
-                finalArgs = fileExt switch
-                {
-                    ".msi" => "/i /qn /norestart",
-                    ".exe" => "/S /silent",
-                    _ => ""
-                };
-            }
-
-            // Build command
-            var installCmd = fileExt == ".msi" 
-                ? $"msiexec.exe {finalArgs} \"{filePath}\""
-                : $"\"{filePath}\" {finalArgs}";
-
-            // Execute installation
-            var result = await ExecuteCommandAsync(installCmd, timeout, runAsUser).ConfigureAwait(false);
-
-            var response = new JsonObject
-            {
-                ["success"] = result.ExitCode == 0,
-                ["exitCode"] = result.ExitCode,
-                ["output"] = result.Output,
-                ["error"] = result.Error,
-                ["filePath"] = filePath
+                FileName = filePath,
+                Arguments = arguments,  // Backend'den gelen parametreleri olduğu gibi kullan
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            if (result.ExitCode == 0)
+            Logger.LogInformation("Starting install process: {FileName} {Arguments}", filePath, arguments);
+
+            string output = "";
+            string error = "";
+            int exitCode;
+
+            using (var process = new Process { StartInfo = psi })
             {
-                Logger.LogInformation("Software installed successfully: {FilePath}", filePath);
-                await SendSuccessAsync(command, context, response).ConfigureAwait(false);
+                process.Start();
+                Logger.LogInformation("Install process started with PID: {ProcessId}", process.Id);
+
+                // Output ve error'u asenkron oku
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                var completed = await Task.Run(() => process.WaitForExit(timeout * 1000)).ConfigureAwait(false);
+
+                if (!completed)
+                {
+                    Logger.LogWarning("Installation timeout after {Timeout}s, killing process tree", timeout);
+                    KillProcessTree(process.Id);
+                    
+                    var timeoutPayload = new JsonObject
+                    {
+                        ["output"] = "",
+                        ["error"] = "Installation timed out",
+                        ["exitCode"] = -1,
+                        ["timedOut"] = true
+                    };
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action, command.CommandId, command.NodeId, command.SessionId,
+                        timeoutPayload, Success: false, Error: "Timeout"))
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                // Output ve error'u al
+                output = await outputTask;
+                error = await errorTask;
+
+                exitCode = process.ExitCode;
+                Logger.LogInformation("Install process completed with exit code: {ExitCode}", exitCode);
             }
-            else
+
+            var successPayload = new JsonObject
             {
-                Logger.LogWarning("Software installation failed with exit code {ExitCode}: {FilePath}", result.ExitCode, filePath);
-                await SendErrorAsync(command, context, $"Installation failed with exit code {result.ExitCode}", response).ConfigureAwait(false);
+                ["exitCode"] = exitCode,
+                ["output"] = output.ToString(),
+                ["error"] = error.ToString(),
+                ["timedOut"] = false,
+                ["refreshInventory"] = exitCode == 0  // Frontend'e inventory yenilemesini söyle
+            };
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                successPayload, Success: exitCode == 0, Error: exitCode != 0 ? "InstallFailed" : null))
+                .ConfigureAwait(false);
+
+            // URL'den indirilen dosyayı temizle
+            if (!string.IsNullOrWhiteSpace(downloadUrl) && File.Exists(filePath))
+            {
+                try
+                {
+                    File.Delete(filePath);
+                    Logger.LogInformation("Cleaned up downloaded file: {FilePath}", filePath);
+                }
+                catch (Exception cleanupEx)
+                {
+                    Logger.LogWarning(cleanupEx, "Failed to delete downloaded file: {FilePath}", filePath);
+                }
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error installing software");
-            await SendErrorAsync(command, context, $"Installation error: {ex.Message}").ConfigureAwait(false);
+            var errorPayload = new JsonObject { ["error"] = ex.Message };
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                errorPayload, Success: false, Error: "Exception"))
+                .ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Uninstall software using provided uninstall string
-    /// </summary>
     private async Task HandleUninstallSoftwareAsync(AgentCommand command, AgentContext context)
     {
         try
         {
-            var name = command.Data["name"]?.GetValue<string>();
-            var uninstallCmd = command.Data["command"]?.GetValue<string>();
-            var timeout = command.Data["timeout"]?.GetValue<int>() ?? 1800; // 30 minutes default
-            var runAsUser = command.Data["runAsUser"]?.GetValue<bool>() ?? false;
+            string? softwareName = null;
+            string? uninstallString = null;
+            int timeout = 1800;
 
-            if (string.IsNullOrWhiteSpace(name))
+            if (command.Payload.TryGetProperty("softwareName", out var nameElem))
+                softwareName = nameElem.GetString();
+            if (command.Payload.TryGetProperty("uninstallString", out var uninstallElem))
+                uninstallString = uninstallElem.GetString();
+            if (command.Payload.TryGetProperty("timeout", out var timeoutElem))
+                timeout = timeoutElem.GetInt32();
+
+            if (string.IsNullOrWhiteSpace(uninstallString))
             {
-                await SendErrorAsync(command, context, "Software name is required").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "Uninstall string is required" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "ValidationError"))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(uninstallCmd))
+            if (!string.IsNullOrWhiteSpace(softwareName) && 
+                softwareName.Contains("olmezagent", StringComparison.OrdinalIgnoreCase))
             {
-                await SendErrorAsync(command, context, "Uninstall command is required").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "Cannot uninstall the agent itself" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "Forbidden"))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            // Security check: Prevent uninstalling our own agent
-            if (uninstallCmd.Contains("olmezagent", StringComparison.OrdinalIgnoreCase) ||
-                uninstallCmd.Contains("olmez.exe", StringComparison.OrdinalIgnoreCase))
+            Logger.LogInformation("Uninstalling software: {Name}", softwareName);
+
+            var parts = ParseCommandLine(uninstallString);
+            if (parts.Length == 0)
             {
-                await SendErrorAsync(command, context, "Cannot uninstall the Olmez Agent from here").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "Invalid uninstall command" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "ValidationError"))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            Logger.LogInformation("Uninstalling software: {Name}", name);
-            Logger.LogInformation("Uninstall command: {Command}", uninstallCmd);
+            var fileName = parts[0];
+            var arguments = string.Join(" ", parts.Skip(1));
 
-            // Execute uninstall command
-            var result = await ExecuteCommandAsync(uninstallCmd, timeout, runAsUser).ConfigureAwait(false);
-
-            var response = new JsonObject
+            // TacticalRMM gibi: UninstallString'i olduğu gibi kullan, parametre ekleme!
+            
+            var psi = new ProcessStartInfo
             {
-                ["success"] = result.ExitCode == 0 || result.ExitCode == 3010, // 3010 = reboot required
-                ["exitCode"] = result.ExitCode,
-                ["output"] = result.Output,
-                ["error"] = result.Error,
-                ["name"] = name,
-                ["rebootRequired"] = result.ExitCode == 3010
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,           // Output yakalayabilmek için
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,     // Output'u yakala
+                RedirectStandardError = true       // Error'u yakala
             };
 
-            if (result.ExitCode == 0 || result.ExitCode == 3010)
+            Logger.LogInformation("Starting uninstall process: {FileName} {Arguments}", fileName, arguments);
+
+            int exitCode;
+            string output = "";
+            string error = "";
+
+            using (var process = new Process { StartInfo = psi })
             {
-                Logger.LogInformation("Software uninstalled successfully: {Name} (Exit code: {ExitCode})", name, result.ExitCode);
-                await SendSuccessAsync(command, context, response).ConfigureAwait(false);
+                Logger.LogInformation("Process.Start() called...");
+                process.Start();
+                Logger.LogInformation("Process started with PID: {ProcessId}", process.Id);
+
+                Logger.LogInformation("Waiting for process to complete (timeout: {Timeout}s)...", timeout);
+                
+                // Output ve error'u asenkron oku
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+                
+                var completed = await Task.Run(() => process.WaitForExit(timeout * 1000)).ConfigureAwait(false);
+
+                if (!completed)
+                {
+                    Logger.LogWarning("Uninstall timeout after {Timeout}s", timeout);
+                    KillProcessTree(process.Id);
+                    
+                    var timeoutPayload = new JsonObject
+                    {
+                        ["output"] = "",
+                        ["error"] = "Uninstall timed out",
+                        ["exitCode"] = -1,
+                        ["timedOut"] = true
+                    };
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action, command.CommandId, command.NodeId, command.SessionId,
+                        timeoutPayload, Success: false, Error: "Timeout"))
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                // Output ve error'u al
+                output = await outputTask;
+                error = await errorTask;
+                
+                exitCode = process.ExitCode;
+                Logger.LogInformation("Process completed with exit code: {ExitCode}", exitCode);
             }
-            else
+
+            Logger.LogInformation("Uninstall process finished. ExitCode: {ExitCode}, Success: {Success}", exitCode, exitCode == 0);
+
+            var successPayload = new JsonObject
             {
-                Logger.LogWarning("Software uninstall failed with exit code {ExitCode}: {Name}", result.ExitCode, name);
-                await SendErrorAsync(command, context, $"Uninstall failed with exit code {result.ExitCode}", response).ConfigureAwait(false);
-            }
+                ["exitCode"] = exitCode,
+                ["output"] = output,
+                ["error"] = error,
+                ["timedOut"] = false,
+                ["refreshInventory"] = exitCode == 0  // Frontend'e inventory yenilemesini söyle
+            };
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                successPayload, Success: exitCode == 0, Error: exitCode != 0 ? "UninstallFailed" : null))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error uninstalling software");
-            await SendErrorAsync(command, context, $"Uninstall error: {ex.Message}").ConfigureAwait(false);
+            var errorPayload = new JsonObject { ["error"] = ex.Message };
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                errorPayload, Success: false, Error: "Exception"))
+                .ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Install Chocolatey package manager
-    /// </summary>
     private async Task HandleInstallChocoAsync(AgentCommand command, AgentContext context)
     {
         try
         {
-            Logger.LogInformation("Installing Chocolatey...");
-
-            // Check if already installed
-            if (IsChocolateyInstalled())
+            var chocoPath = FindChocolateyExe();
+            if (!string.IsNullOrEmpty(chocoPath))
             {
-                await SendSuccessAsync(command, context, new JsonObject
+                var payload = new JsonObject
                 {
-                    ["installed"] = true,
-                    ["message"] = "Chocolatey is already installed"
-                }).ConfigureAwait(false);
+                    ["message"] = "Chocolatey is already installed",
+                    ["path"] = chocoPath
+                };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    payload, Success: true))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            // Download install script
-            using var httpClient = new System.Net.Http.HttpClient();
-            httpClient.Timeout = TimeSpan.FromMinutes(5);
-            
-            var installScript = await httpClient.GetStringAsync("https://chocolatey.org/install.ps1").ConfigureAwait(false);
+            Logger.LogInformation("Installing Chocolatey...");
 
-            // Execute PowerShell script
-            var result = await ExecutePowerShellScriptAsync(installScript, timeout: 900).ConfigureAwait(false);
+            HttpClient.Timeout = TimeSpan.FromMinutes(5);
+            var script = await HttpClient.GetStringAsync("https://chocolatey.org/install.ps1").ConfigureAwait(false);
 
-            var response = new JsonObject
+            var psi = new ProcessStartInfo
             {
-                ["installed"] = result.ExitCode == 0,
-                ["exitCode"] = result.ExitCode,
-                ["output"] = result.Output,
-                ["error"] = result.Error
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -Command -",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            if (result.ExitCode == 0)
+            string output;
+            string error;
+            int exitCode;
+
+            using (var process = new Process { StartInfo = psi })
             {
-                Logger.LogInformation("Chocolatey installed successfully");
-                await SendSuccessAsync(command, context, response).ConfigureAwait(false);
+                process.Start();
+
+                await process.StandardInput.WriteAsync(script).ConfigureAwait(false);
+                await process.StandardInput.FlushAsync().ConfigureAwait(false);
+                process.StandardInput.Close();
+
+                // Output ve error'u asenkron oku
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                var completed = await Task.Run(() => process.WaitForExit(300000)).ConfigureAwait(false);
+
+                if (!completed)
+                {
+                    Logger.LogWarning("Chocolatey install timeout");
+                    KillProcessTree(process.Id);
+                    
+                    var timeoutPayload = new JsonObject
+                    {
+                        ["output"] = "",
+                        ["error"] = "Chocolatey installation timed out",
+                        ["exitCode"] = -1,
+                        ["timedOut"] = true
+                    };
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action, command.CommandId, command.NodeId, command.SessionId,
+                        timeoutPayload, Success: false, Error: "Timeout"))
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                // Output ve error'u al
+                output = await outputTask;
+                error = await errorTask;
+
+                exitCode = process.ExitCode;
+                Logger.LogInformation("Install process completed with exit code: {ExitCode}", exitCode);
             }
-            else
+
+            var successPayload = new JsonObject
             {
-                Logger.LogWarning("Chocolatey installation failed with exit code {ExitCode}", result.ExitCode);
-                await SendErrorAsync(command, context, $"Chocolatey installation failed with exit code {result.ExitCode}", response).ConfigureAwait(false);
-            }
+                ["exitCode"] = exitCode,
+                ["output"] = output,
+                ["error"] = error,
+                ["timedOut"] = false
+            };
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                successPayload, Success: exitCode == 0, Error: exitCode != 0 ? "InstallFailed" : null))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error installing Chocolatey");
-            await SendErrorAsync(command, context, $"Chocolatey installation error: {ex.Message}").ConfigureAwait(false);
+            var errorPayload = new JsonObject { ["error"] = ex.Message };
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                errorPayload, Success: false, Error: "Exception"))
+                .ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Install software using Chocolatey
-    /// </summary>
     private async Task HandleInstallWithChocoAsync(AgentCommand command, AgentContext context)
     {
         try
         {
-            var packageName = command.Data["packageName"]?.GetValue<string>();
-            var version = command.Data["version"]?.GetValue<string>();
-            var force = command.Data["force"]?.GetValue<bool>() ?? true;
+            string? packageName = null;
+            string? version = null;
+            bool force = false;
+
+            if (command.Payload.TryGetProperty("packageName", out var pkgElem))
+                packageName = pkgElem.GetString();
+            if (command.Payload.TryGetProperty("version", out var verElem))
+                version = verElem.GetString();
+            if (command.Payload.TryGetProperty("force", out var forceElem))
+                force = forceElem.GetBoolean();
 
             if (string.IsNullOrWhiteSpace(packageName))
             {
-                await SendErrorAsync(command, context, "Package name is required").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "Package name is required" };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "ValidationError"))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            // Check if Chocolatey is installed
-            if (!IsChocolateyInstalled())
+            var chocoPath = FindChocolateyExe();
+            if (string.IsNullOrEmpty(chocoPath))
             {
-                await SendErrorAsync(command, context, "Chocolatey is not installed. Please install Chocolatey first.").ConfigureAwait(false);
+                var errorPayload = new JsonObject { ["error"] = "Chocolatey is not installed. Please install Chocolatey first." };
+                await context.ResponseWriter.SendAsync(new CommandResult(
+                    command.Action, command.CommandId, command.NodeId, command.SessionId,
+                    errorPayload, Success: false, Error: "ChocoNotInstalled"))
+                    .ConfigureAwait(false);
                 return;
             }
 
-            Logger.LogInformation("Installing package with Chocolatey: {PackageName}", packageName);
+            Logger.LogInformation("Installing package with Chocolatey: {Package}", packageName);
 
-            var chocoExe = FindChocolateyExe();
-            if (string.IsNullOrWhiteSpace(chocoExe))
-            {
-                await SendErrorAsync(command, context, "Chocolatey executable not found").ConfigureAwait(false);
-                return;
-            }
-
-            // Build arguments
-            var args = new List<string> { "install", packageName, "--yes", "--no-progress" };
-            
+            var args = $"install {packageName} --yes --force --force-dependencies --no-progress";
             if (!string.IsNullOrWhiteSpace(version))
+                args += $" --version={version}";
+
+            var psi = new ProcessStartInfo
             {
-                args.Add($"--version={version}");
-            }
-
-            if (force)
-            {
-                args.Add("--force");
-                args.Add("--force-dependencies");
-            }
-
-            var arguments = string.Join(" ", args);
-            var installCmd = $"\"{chocoExe}\" {arguments}";
-
-            // Execute installation (20 minutes timeout for large packages)
-            var result = await ExecuteCommandAsync(installCmd, timeout: 1200, runAsUser: false).ConfigureAwait(false);
-
-            var response = new JsonObject
-            {
-                ["success"] = result.ExitCode == 0,
-                ["exitCode"] = result.ExitCode,
-                ["output"] = result.Output,
-                ["error"] = result.Error,
-                ["packageName"] = packageName
+                FileName = chocoPath,
+                Arguments = args,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            if (result.ExitCode == 0)
+            string output;
+            string error;
+            int exitCode;
+
+            using (var process = new Process { StartInfo = psi })
             {
-                Logger.LogInformation("Package installed successfully with Chocolatey: {PackageName}", packageName);
-                await SendSuccessAsync(command, context, response).ConfigureAwait(false);
+                process.Start();
+
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+
+                var completed = await Task.Run(() => process.WaitForExit(1200000)).ConfigureAwait(false);
+
+                if (!completed)
+                {
+                    Logger.LogWarning("Chocolatey install timeout for {Package}", packageName);
+                    KillProcessTree(process.Id);
+
+                    output = await outputTask.ConfigureAwait(false);
+                    
+                    var timeoutPayload = new JsonObject
+                    {
+                        ["output"] = output,
+                        ["error"] = "Package installation timed out",
+                        ["exitCode"] = -1,
+                        ["timedOut"] = true
+                    };
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action, command.CommandId, command.NodeId, command.SessionId,
+                        timeoutPayload, Success: false, Error: "Timeout"))
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                output = await outputTask.ConfigureAwait(false);
+                error = await errorTask.ConfigureAwait(false);
+                exitCode = process.ExitCode;
             }
-            else
+
+            var resultPayload = new JsonObject
             {
-                Logger.LogWarning("Chocolatey package installation failed with exit code {ExitCode}: {PackageName}", result.ExitCode, packageName);
-                await SendErrorAsync(command, context, $"Chocolatey installation failed with exit code {result.ExitCode}", response).ConfigureAwait(false);
-            }
+                ["exitCode"] = exitCode,
+                ["output"] = output,
+                ["error"] = error,
+                ["timedOut"] = false
+            };
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                resultPayload, Success: exitCode == 0, Error: exitCode != 0 ? "InstallFailed" : null))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error installing with Chocolatey");
-            await SendErrorAsync(command, context, $"Chocolatey installation error: {ex.Message}").ConfigureAwait(false);
+            Logger.LogError(ex, "Error installing package with Chocolatey");
+            var errorPayload = new JsonObject { ["error"] = ex.Message };
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action, command.CommandId, command.NodeId, command.SessionId,
+                errorPayload, Success: false, Error: "Exception"))
+                .ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Execute command with timeout and user context
-    /// </summary>
-    private async Task<CommandResult> ExecuteCommandAsync(string command, int timeoutSeconds, bool runAsUser)
+    private static string? FindChocolateyExe()
     {
-        var startInfo = new ProcessStartInfo
+        var paths = new[]
         {
-            FileName = "cmd.exe",
-            Arguments = $"/c {command}",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            WorkingDirectory = Environment.SystemDirectory
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "chocolatey", "bin", "choco.exe"),
+            Path.Combine(Environment.GetEnvironmentVariable("ProgramData") ?? "C:\\ProgramData", "chocolatey", "bin", "choco.exe")
         };
 
-        using var process = new Process { StartInfo = startInfo };
-        var outputBuilder = new StringBuilder();
-        var errorBuilder = new StringBuilder();
-
-        process.OutputDataReceived += (sender, e) =>
+        foreach (var path in paths)
         {
-            if (!string.IsNullOrEmpty(e.Data))
-                outputBuilder.AppendLine(e.Data);
-        };
-
-        process.ErrorDataReceived += (sender, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                errorBuilder.AppendLine(e.Data);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        var processTask = Task.Run(() => process.WaitForExit(), cts.Token);
+            if (File.Exists(path))
+                return path;
+        }
 
         try
         {
-            await processTask.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            try
+            var psi = new ProcessStartInfo
             {
-                process.Kill(entireProcessTree: true);
-            }
-            catch { }
-
-            return new CommandResult
-            {
-                ExitCode = -1,
-                Output = outputBuilder.ToString(),
-                Error = $"Command timed out after {timeoutSeconds} seconds",
-                TimedOut = true
+                FileName = "where",
+                Arguments = "choco",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
             };
-        }
 
-        return new CommandResult
-        {
-            ExitCode = process.ExitCode,
-            Output = outputBuilder.ToString(),
-            Error = errorBuilder.ToString(),
-            TimedOut = false
-        };
-    }
-
-    /// <summary>
-    /// Execute PowerShell script
-    /// </summary>
-    private async Task<CommandResult> ExecutePowerShellScriptAsync(string script, int timeout)
-    {
-        var tempFile = Path.Combine(Path.GetTempPath(), $"olmez_script_{Guid.NewGuid():N}.ps1");
-        
-        try
-        {
-            await File.WriteAllTextAsync(tempFile, script).ConfigureAwait(false);
-
-            var command = $"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{tempFile}\"";
-            return await ExecuteCommandAsync(command, timeout, false).ConfigureAwait(false);
-        }
-        finally
-        {
-            try
+            using var process = Process.Start(psi);
+            if (process != null)
             {
-                if (File.Exists(tempFile))
-                    File.Delete(tempFile);
-            }
-            catch { }
-        }
-    }
-
-    /// <summary>
-    /// Check if Chocolatey is installed
-    /// </summary>
-    private bool IsChocolateyInstalled()
-    {
-        var chocoExe = FindChocolateyExe();
-        return !string.IsNullOrWhiteSpace(chocoExe) && File.Exists(chocoExe);
-    }
-
-    /// <summary>
-    /// Find Chocolatey executable path
-    /// </summary>
-    private string? FindChocolateyExe()
-    {
-        // 1. Check in PATH
-        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
-        var chocoInPath = pathEnv
-            .Split(';')
-            .Select(p => Path.Combine(p.Trim(), "choco.exe"))
-            .FirstOrDefault(File.Exists);
-
-        if (!string.IsNullOrWhiteSpace(chocoInPath))
-            return chocoInPath;
-
-        // 2. Check default location
-        var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-        var defaultPath = Path.Combine(programData, @"chocolatey\bin\choco.exe");
-        
-        if (File.Exists(defaultPath))
-            return defaultPath;
-
-        // 3. Try to find via where command
-        try
-        {
-            var whereResult = ExecuteCommandAsync("where choco.exe", 5, false).Result;
-            if (whereResult.ExitCode == 0 && !string.IsNullOrWhiteSpace(whereResult.Output))
-            {
-                var path = whereResult.Output.Split('\n')[0].Trim();
-                if (File.Exists(path))
-                    return path;
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                {
+                    var firstLine = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(firstLine) && File.Exists(firstLine))
+                        return firstLine;
+                }
             }
         }
-        catch { }
+        catch
+        {
+            // Ignore errors
+        }
 
         return null;
     }
 
-    private class CommandResult
+    private static string[] ParseCommandLine(string commandLine)
     {
-        public int ExitCode { get; set; }
-        public string Output { get; set; } = string.Empty;
-        public string Error { get; set; } = string.Empty;
-        public bool TimedOut { get; set; }
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+
+        for (int i = 0; i < commandLine.Length; i++)
+        {
+            var c = commandLine[i];
+            if (c == '"' && (i == 0 || commandLine[i - 1] != '\\'))
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (c == ' ' && !inQuotes)
+            {
+                if (current.Length > 0)
+                {
+                    parts.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        if (current.Length > 0)
+            parts.Add(current.ToString());
+
+        return parts.ToArray();
+    }
+
+    private static void KillProcessTree(int pid)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "taskkill",
+                Arguments = $"/PID {pid} /T /F",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            process?.WaitForExit(5000);
+        }
+        catch
+        {
+            // Ignore errors
+        }
     }
 }

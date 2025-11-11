@@ -40,6 +40,8 @@ export default function Desktop() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   const [clipboard, setClipboard] = useState<RemoteClipboardState>({
     value: '',
     loading: false,
@@ -52,9 +54,6 @@ export default function Desktop() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const recordingChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     return () => {
@@ -169,7 +168,7 @@ export default function Desktop() {
       if (recorderRef.current) {
         recorderRef.current.stop();
       }
-      setIsRecording(false);
+      // setIsRecording(false);
       setShowSettings(false);
     } catch (err) {
       setError(toErrorMessage(err, t('desktop.errorStop')));
@@ -381,12 +380,16 @@ export default function Desktop() {
                 <Camera className="h-4 w-4" />
               </button>
               <button
-                onClick={() => undefined}
-                disabled
-                className="rounded-lg border border-dashed border-border/70 p-2 text-muted-foreground/60 cursor-not-allowed"
-                title={t('desktop.recordingComingSoon')}
+                onClick={handleRecordingToggle}
+                disabled={!isConnected || busy}
+                className={`rounded-lg p-2 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isRecording
+                    ? 'bg-destructive text-white'
+                    : 'border border-border bg-secondary/40 text-muted-foreground hover:bg-secondary/70'
+                }`}
+                title={isRecording ? t('desktop.recordingStop') : t('desktop.recordingStart')}
               >
-                <Video className="h-4 w-4" />
+                {isRecording ? <Square className="h-4 w-4" /> : <Video className="h-4 w-4" />}
               </button>
               <button
                 onClick={toggleFullscreen}
@@ -588,3 +591,4 @@ export default function Desktop() {
     </div>
   );
 }
+

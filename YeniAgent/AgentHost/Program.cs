@@ -62,6 +62,9 @@ builder.Services.AddSerilog();
 builder.Services.Configure<AgentRuntimeOptions>(builder.Configuration.GetSection("Agent"));
 builder.Services.AddSingleton<IAgentEventBus, InMemoryAgentEventBus>();
 builder.Services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
+
+// Register all modules - DesktopModule will handle service vs console mode internally
+Log.Information("Registering all modules (DesktopModule in hybrid mode)");
 builder.Services.AddAgentModules();
 
 // Placeholder ResponseWriter (WebSocket bağlanana kadar)
@@ -107,8 +110,11 @@ var host = builder.Build();
 
 try
 {
-    Log.Information("olmez Agent başlatılıyor... (Mode: {Mode})", 
-        Environment.UserInteractive ? "Console" : "Windows Service");
+    Log.Information("═══════════════════════════════════════════════════════");
+    Log.Information("olmez Agent başlatılıyor");
+    Log.Information("Execution Mode: {Mode}", Environment.UserInteractive ? "Console" : "Service");
+    Log.Information("DesktopModule: Hybrid mode (will spawn helper if service)");
+    Log.Information("═══════════════════════════════════════════════════════");
     host.Run();
     return 0;
 }

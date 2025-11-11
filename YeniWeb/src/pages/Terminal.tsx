@@ -20,6 +20,7 @@ export default function Terminal() {
   const [output, setOutput] = useState<TerminalEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionId] = useState(() => `terminal-${Date.now()}-${Math.random().toString(36).substring(7)}`);
   const { t, language } = useTranslation();
   const locale = language === 'tr' ? 'tr-TR' : 'en-GB';
   const shellOptions = useMemo(
@@ -43,8 +44,9 @@ export default function Terminal() {
     try {
       const response = await commandService.executeAndWait<string>({
         deviceId: id,
-        commandType: 'execute',
+        commandType: 'console',
         parameters: { command: trimmed, shell: shellType },
+        sessionId: sessionId,
       });
 
       const payload = response.data ?? response.command?.result ?? '';
@@ -144,3 +146,4 @@ export default function Terminal() {
     </div>
   );
 }
+

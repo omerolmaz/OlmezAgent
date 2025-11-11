@@ -29,7 +29,7 @@ async function runInventoryCommand<T>(
   command: InventoryCommand,
   body?: Record<string, unknown>,
 ): Promise<CommandResultPayload<T>> {
-  const endpoint = `/api/inventory/${command}/${deviceId}`;
+  const endpoint = `/inventory/${command}/${deviceId}`;
   const executeResponse = await apiService.post<{ id: string }>(endpoint, body ?? {});
   const completed = await commandService.waitForCommand(executeResponse.id);
   const parsed = completed.result ? (JSON.parse(completed.result) as T) : undefined;
@@ -196,7 +196,7 @@ interface InventoryApiDetail {
 export const inventoryService = {
   async getFullInventory(deviceId: string): Promise<InventoryResult> {
     try {
-      const response = await apiService.get<InventoryApiEnvelope>(`/api/inventory/devices/${deviceId}`);
+      const response = await apiService.get<InventoryApiEnvelope>(`/inventory/devices/${deviceId}`);
       if (!response.success || !response.data) {
         return {
           success: false,
@@ -223,19 +223,19 @@ export const inventoryService = {
 
   async refreshInventory(deviceId: string, userId: string) {
     return await apiService.post<{ commandId: string; message: string }>(
-      `/api/inventory/devices/${deviceId}/refresh`,
+      `/inventory/devices/${deviceId}/refresh`,
       { userId },
     );
   },
 
   // Get installed software from database
   async getInstalledSoftware(deviceId: string) {
-    return await apiService.get<InstalledSoftware[]>(`/api/inventory/devices/${deviceId}/software`);
+    return await apiService.get<InstalledSoftware[]>(`/inventory/devices/${deviceId}/software`);
   },
 
   // Get installed patches from database
   async getInstalledPatches(deviceId: string) {
-    return await apiService.get<PatchInfo[]>(`/api/inventory/devices/${deviceId}/patches`);
+    return await apiService.get<PatchInfo[]>(`/inventory/devices/${deviceId}/patches`);
   },
 
   getSystemInfo(deviceId: string) {
@@ -269,7 +269,7 @@ export const inventoryService = {
 
 export const fileInventoryService = {
   async listPath(deviceId: string, path: string) {
-    const executeResponse = await apiService.post<{ id: string }>(`/api/remoteops/ls/${deviceId}`, { path });
+    const executeResponse = await apiService.post<{ id: string }>(`/remoteops/ls/${deviceId}`, { path });
     const completed = await commandService.waitForCommand(executeResponse.id, { timeoutMs: 20000 });
     const parsed = completed.result ? (JSON.parse(completed.result) as FileListEntry[]) : [];
 
@@ -384,3 +384,4 @@ function coerceNumber(value: number | string | undefined | null): number | undef
   const parsed = Number(value);
   return Number.isNaN(parsed) ? undefined : parsed;
 }
+

@@ -13,3 +13,4 @@ export function toErrorMessage(error: unknown, fallback = 'Unknown error'): stri
   }
   return fallback;
 }
+

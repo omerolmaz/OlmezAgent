@@ -84,3 +84,4 @@ export const reportsService = {
 };
 
 export type ReportResult = Promise<GeneratedReport>;
+

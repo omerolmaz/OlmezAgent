@@ -11,7 +11,7 @@ export interface FileEntry {
 
 export const remoteOpsService = {
   async listDirectory(deviceId: string, path: string): Promise<CommandResultPayload<FileEntry[]>> {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/ls/${deviceId}`, { path });
+    const response = await apiService.post<{ id: string }>(`/remoteops/ls/${deviceId}`, { path });
     const command = await commandService.waitForCommand(response.id, { timeoutMs: 20000 });
     
     let parsed: FileEntry[] = [];
@@ -45,22 +45,22 @@ export const remoteOpsService = {
   },
 
   async deletePath(deviceId: string, path: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/rm/${deviceId}`, { path });
+    const response = await apiService.post<{ id: string }>(`/remoteops/rm/${deviceId}`, { path });
     return commandService.waitForCommand(response.id);
   },
 
   async createDirectory(deviceId: string, path: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/mkdir/${deviceId}`, { path });
+    const response = await apiService.post<{ id: string }>(`/remoteops/mkdir/${deviceId}`, { path });
     return commandService.waitForCommand(response.id);
   },
 
   async sendPowerAction(deviceId: string, action: 'restart' | 'shutdown' | 'sleep') {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/power/${deviceId}`, { action });
+    const response = await apiService.post<{ id: string }>(`/remoteops/power/${deviceId}`, { action });
     return commandService.waitForCommand(response.id);
   },
 
   async manageService(deviceId: string, serviceName: string, action: 'start' | 'stop' | 'restart') {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/service/${deviceId}`, {
+    const response = await apiService.post<{ id: string }>(`/remoteops/service/${deviceId}`, {
       serviceName,
       action,
     });
@@ -68,7 +68,7 @@ export const remoteOpsService = {
   },
   
   async zip(deviceId: string, sourcePath: string, destinationPath: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/zip/${deviceId}`, {
+    const response = await apiService.post<{ id: string }>(`/remoteops/zip/${deviceId}`, {
       sourcePath,
       destinationPath,
     });
@@ -76,7 +76,7 @@ export const remoteOpsService = {
   },
 
   async unzip(deviceId: string, sourcePath: string, destinationPath: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/unzip/${deviceId}`, {
+    const response = await apiService.post<{ id: string }>(`/remoteops/unzip/${deviceId}`, {
       sourcePath,
       destinationPath,
     });
@@ -84,17 +84,17 @@ export const remoteOpsService = {
   },
 
   async openUrl(deviceId: string, url: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/openurl/${deviceId}`, { url });
+    const response = await apiService.post<{ id: string }>(`/remoteops/openurl/${deviceId}`, { url });
     return commandService.waitForCommand(response.id);
   },
 
   async wakeOnLan(deviceId: string, macAddress: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/wakeonlan/${deviceId}`, { macAddress });
+    const response = await apiService.post<{ id: string }>(`/remoteops/wakeonlan/${deviceId}`, { macAddress });
     return commandService.waitForCommand(response.id);
   },
 
   async runClipboardGet(deviceId: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/clipboard/get/${deviceId}`);
+    const response = await apiService.post<{ id: string }>(`/remoteops/clipboard/get/${deviceId}`);
     const command = await commandService.waitForCommand(response.id);
     return {
       success: command.status === 'Completed',
@@ -105,10 +105,11 @@ export const remoteOpsService = {
   },
 
   async setClipboard(deviceId: string, content: string) {
-    const response = await apiService.post<{ id: string }>(`/api/remoteops/clipboard/set/${deviceId}`, { content });
+    const response = await apiService.post<{ id: string }>(`/remoteops/clipboard/set/${deviceId}`, { content });
     return commandService.waitForCommand(response.id);
   },
 };
 
 export default remoteOpsService;
+
 

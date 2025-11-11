@@ -31,18 +31,19 @@ async function executeAndTrack(
 
 export const softwareService = {
   installSoftware(deviceId: string, payload: InstallPayload) {
-    return executeAndTrack(`/api/software/install/${deviceId}`, payload);
+    return executeAndTrack(`/software/install/${deviceId}`, payload);
   },
   uninstallSoftware(deviceId: string, payload: UninstallPayload) {
-    return executeAndTrack(`/api/software/uninstall/${deviceId}`, payload);
+    return executeAndTrack(`/software/uninstall/${deviceId}`, payload);
   },
   installUpdates(deviceId: string, payload?: UpdatePayload) {
-    return executeAndTrack(`/api/software/updates/install/${deviceId}`, payload ?? {});
+    return executeAndTrack(`/software/updates/install/${deviceId}`, payload ?? {});
   },
   schedulePatch(deviceId: string, payload: PatchSchedulePayload) {
-    return executeAndTrack(`/api/software/patch/schedule/${deviceId}`, payload);
+    return executeAndTrack(`/software/patch/schedule/${deviceId}`, payload);
   },
 };
 
 export default softwareService;
+
 

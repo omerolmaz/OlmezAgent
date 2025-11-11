@@ -57,6 +57,9 @@ public static class AgentRightsExtensions
 
     public static bool CanExecuteCommand(this AgentRights rights, string action)
     {
+        if (string.IsNullOrWhiteSpace(action))
+            return false;
+
         return action.ToLowerInvariant() switch
         {
             // Konsol komutları

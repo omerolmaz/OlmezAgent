@@ -65,6 +65,9 @@ public class InventoryController : ControllerBase
             s.Publisher,
             s.InstallDate,
             s.InstallLocation,
+            s.SizeInBytes,
+            s.UninstallString,
+            s.QuietUninstallString,
             SizeMb = s.SizeInBytes.HasValue ? Math.Round(s.SizeInBytes.Value / 1024.0 / 1024.0, 2) : (double?)null
         });
         return Ok(result);

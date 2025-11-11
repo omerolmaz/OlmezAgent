@@ -40,3 +40,4 @@ export interface UpdateUserRequest {
   rights?: UserRight;
   isActive?: boolean;
 }
+

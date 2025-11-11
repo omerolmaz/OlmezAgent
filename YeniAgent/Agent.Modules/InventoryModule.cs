@@ -392,6 +392,10 @@ public sealed class InventoryModule : AgentModuleBase
                             catch { /* Ignore conversion errors */ }
                         }
 
+                        // Best Practice: QuietUninstallString için öncelik ver (silent uninstall)
+                        var quietUninstallString = appKey.GetValue("QuietUninstallString") as string;
+                        var uninstallString = appKey.GetValue("UninstallString") as string;
+                        
                         var entry = new JsonObject
                         {
                             ["name"] = displayName,
@@ -399,7 +403,8 @@ public sealed class InventoryModule : AgentModuleBase
                             ["publisher"] = appKey.GetValue("Publisher") as string,
                             ["installDate"] = installDate?.ToString("o"), // ISO 8601 format
                             ["sizeInBytes"] = sizeInBytes,
-                            ["uninstallString"] = appKey.GetValue("UninstallString") as string
+                            ["uninstallString"] = uninstallString,
+                            ["quietUninstallString"] = quietUninstallString
                         };
                         result.Add(entry);
                     }

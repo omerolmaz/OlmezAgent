@@ -50,7 +50,6 @@ import type {
   ScriptsState,
   ScriptFormState,
   QualityLevel,
-  SoftwareState,
   PatchState,
   PatchFormState,
 } from './types';
@@ -1731,97 +1730,6 @@ export function TerminalTab({
   );
 }
 
-export function SoftwareTab({
-  state,
-  onRefresh,
-  onUninstall,
-}: {
-  state: SoftwareState;
-  onRefresh: () => void;
-  onUninstall: (productName: string) => void;
-}) {
-  const { t, language } = useTranslation();
-  const locale = language === 'tr' ? 'tr-TR' : 'en-GB';
-
-  return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold">{t('deviceDetail.software.title')}</h2>
-          <p className="text-sm text-muted-foreground">{t('deviceDetail.software.description')}</p>
-        </div>
-        <button
-          onClick={onRefresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-secondary/70"
-        >
-          <RefreshCw className="h-4 w-4" />
-          {t('deviceDetail.software.refresh')}
-        </button>
-      </div>
-      {state.message && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">
-          {state.message}
-        </div>
-      )}
-      {state.error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {state.error}
-        </div>
-      )}
-      {state.loading ? (
-        <div className="flex h-48 items-center justify-center gap-2 text-muted-foreground">
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          {t('deviceDetail.software.loading')}
-        </div>
-      ) : state.items.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">{t('deviceDetail.software.empty')}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 text-left">{t('deviceDetail.software.columns.name')}</th>
-                <th className="px-4 py-3 text-left">{t('deviceDetail.software.columns.version')}</th>
-                <th className="px-4 py-3 text-left">{t('deviceDetail.software.columns.publisher')}</th>
-                <th className="px-4 py-3 text-left">{t('deviceDetail.software.columns.size')}</th>
-                <th className="px-4 py-3 text-left">{t('deviceDetail.software.columns.installDate')}</th>
-                <th className="px-4 py-3 text-right">{t('deviceDetail.software.columns.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.items.map((item) => {
-                const uninstalling = state.actionTarget === item.name;
-                return (
-                  <tr key={`${item.name}-${item.version}`} className="border-t border-border/70">
-                    <td className="px-4 py-3 font-medium text-foreground">{item.name}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.version ?? '-'}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.publisher ?? '-'}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {item.sizeMb ? `${item.sizeMb.toFixed(1)} MB` : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {item.installDate ? new Date(item.installDate).toLocaleDateString(locale) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => onUninstall(item.name)}
-                        disabled={uninstalling}
-                        className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {uninstalling ? t('deviceDetail.software.uninstalling') : t('deviceDetail.software.uninstall')}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 export function PatchesTab({
   state,
   form,
@@ -2014,24 +1922,25 @@ export function MessagingTab({
   onChange,
   onSend,
   disabled,
+  chatMessages,
 }: {
   state: MessagingFormState;
   onChange: (patch: Partial<MessagingFormState>) => void;
   onSend: () => void;
   disabled?: boolean;
+  chatMessages?: Array<{ sender: string; message: string; timestamp: string }>;
 }) {
   const { t } = useTranslation();
   const actionOptions = useMemo(
     () => [
-      { value: 'agentmsg', label: t('deviceDetail.messaging.actions.agentmsg') },
-      { value: 'messagebox', label: t('deviceDetail.messaging.actions.messagebox') },
       { value: 'notify', label: t('deviceDetail.messaging.actions.notify') },
-      { value: 'toast', label: t('deviceDetail.messaging.actions.toast') },
       { value: 'chat', label: t('deviceDetail.messaging.actions.chat') },
     ],
     [t],
   );
   const canSend = !disabled && !state.sending && state.message.trim().length > 0;
+  const showTitle = state.action === 'notify'; // Sadece notify'da title göster
+  const showChatHistory = state.action === 'chat' && chatMessages && chatMessages.length > 0;
 
   return (
     <section className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -2039,6 +1948,40 @@ export function MessagingTab({
         <h2 className="text-lg font-semibold">{t('deviceDetail.messaging.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('deviceDetail.messaging.description')}</p>
       </div>
+
+      {/* Chat mesaj geçmişi */}
+      {showChatHistory && (
+        <div className="space-y-2">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">
+            {t('deviceDetail.messaging.chatHistory')}
+          </label>
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
+            {chatMessages!.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex flex-col gap-1 ${
+                  msg.sender === 'Server' || msg.sender.includes('admin') ? 'items-end' : 'items-start'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-semibold">{msg.sender}</span>
+                  <span>•</span>
+                  <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <div
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                    msg.sender === 'Server' || msg.sender.includes('admin')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary/60'
+                  }`}
+                >
+                  {msg.message}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -2057,28 +2000,19 @@ export function MessagingTab({
             ))}
           </select>
         </div>
-        <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            {t('deviceDetail.messaging.fields.duration')}
-          </label>
-          <input
-            type="number"
-            value={state.duration}
-            onChange={(event) => onChange({ duration: Number(event.target.value) || 0 })}
-            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">
-            {t('deviceDetail.messaging.fields.title')}
-          </label>
-          <input
-            value={state.title}
-            onChange={(event) => onChange({ title: event.target.value })}
-            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
-            placeholder={t('deviceDetail.messaging.titlePlaceholder')}
-          />
-        </div>
+        {showTitle && (
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase text-muted-foreground">
+              {t('deviceDetail.messaging.fields.title')}
+            </label>
+            <input
+              value={state.title}
+              onChange={(event) => onChange({ title: event.target.value })}
+              className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
+              placeholder={t('deviceDetail.messaging.titlePlaceholder')}
+            />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -2418,3 +2352,4 @@ export function formatKey(key: string): string {
     .trim()
     .replace(/^\w/, (c) => c.toUpperCase());
 }
+

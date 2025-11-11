@@ -20,3 +20,4 @@ export interface StartSessionRequest {
 export interface EndSessionRequest {
   sessionId: string; // Backend Guid bekliyor ama string olarak gönderiyoruz
 }
+

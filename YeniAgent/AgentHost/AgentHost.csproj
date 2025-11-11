@@ -45,5 +45,27 @@
     <ProjectReference Include="..\Agent.Abstractions\Agent.Abstractions.csproj" />
     <ProjectReference Include="..\Agent.Modules\Agent.Modules.csproj" />
     <ProjectReference Include="..\Agent.Transport\Agent.Transport.csproj" />
+    <ProjectReference Include="..\DesktopHelper\DesktopHelper.csproj" />
+    <ProjectReference Include="..\NotificationHelper\NotificationHelper.csproj" />
   </ItemGroup>
+
+  <Target Name="CopyDesktopHelper" AfterTargets="Build">
+    <ItemGroup>
+      <DesktopHelperFiles Include="..\DesktopHelper\bin\$(Configuration)\net8.0-windows\DesktopHelper.exe" />
+      <DesktopHelperFiles Include="..\DesktopHelper\bin\$(Configuration)\net8.0-windows\DesktopHelper.dll" />
+      <DesktopHelperFiles Include="..\DesktopHelper\bin\$(Configuration)\net8.0-windows\DesktopHelper.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DesktopHelperFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Message Text="DesktopHelper copied to $(OutputPath)" Importance="high" />
+  </Target>
+
+  <Target Name="CopyNotificationHelper" AfterTargets="Build">
+    <ItemGroup>
+      <NotificationHelperFiles Include="..\NotificationHelper\bin\$(Configuration)\net8.0-windows\NotificationHelper.exe" />
+      <NotificationHelperFiles Include="..\NotificationHelper\bin\$(Configuration)\net8.0-windows\NotificationHelper.dll" />
+      <NotificationHelperFiles Include="..\NotificationHelper\bin\$(Configuration)\net8.0-windows\NotificationHelper.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NotificationHelperFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Message Text="NotificationHelper copied to $(OutputPath)" Importance="high" />
+  </Target>
 </Project>

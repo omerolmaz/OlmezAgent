@@ -13,6 +13,7 @@ public class InstalledSoftware
     public string? InstallLocation { get; set; }
     public long? SizeInBytes { get; set; }
     public string? UninstallString { get; set; }
+    public string? QuietUninstallString { get; set; } // Silent uninstall için
     public string? RegistryPath { get; set; } // Benzersizlik için
     
     // Navigation

@@ -141,6 +141,12 @@ public class AgentWebSocketMiddleware
                                 case "commandresult":
                                     await HandleCommandResult(root, dbContext, deviceService, context, webSocket);
                                     break;
+                                
+                                case "chatmessage":
+                                case "agentevent":
+                                    // Agent'tan gelen mesaj/event - broadcast et veya kaydet
+                                    await HandleAgentMessageAsync(root, deviceId, dbContext);
+                                    break;
                                     
                                 default:
                                     _logger.LogWarning("Unknown action: {Action}", action);
@@ -457,6 +463,52 @@ public class AgentWebSocketMiddleware
     {
         try
         {
+            // Önce result içindeki action'ı kontrol et
+            if (root.TryGetProperty("result", out var resultCheck) && resultCheck.ValueKind == JsonValueKind.Object)
+            {
+                if (resultCheck.TryGetProperty("action", out var resultActionProp))
+                {
+                    var resultAction = resultActionProp.GetString();
+                    if (resultAction == "chatmessage" || resultAction == "agentevent")
+                    {
+                        _logger.LogInformation("DEBUG: Full root JSON: {Json}", root.GetRawText());
+                        _logger.LogDebug("Skipping command lookup for result.action: {Action}", resultAction);
+                        
+                        // DeviceId'yi root'tan çıkar
+                        Guid? deviceId = null;
+                        if (root.TryGetProperty("nodeId", out var nodeIdProp))
+                        {
+                            var nodeIdStr = nodeIdProp.GetString();
+                            _logger.LogInformation("DEBUG: nodeId from root: {NodeId}", nodeIdStr);
+                            if (!string.IsNullOrEmpty(nodeIdStr) && Guid.TryParse(nodeIdStr, out var parsedNodeId))
+                            {
+                                deviceId = parsedNodeId;
+                                _logger.LogInformation("DEBUG: Parsed deviceId: {DeviceId}", deviceId);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("DEBUG: nodeId property NOT FOUND in root!");
+                        }
+                        
+                        // HandleAgentMessageAsync'e yönlendir
+                        await HandleAgentMessageAsync(resultCheck, deviceId, dbContext);
+                        return;
+                    }
+                }
+            }
+            
+            // Sonra root action kontrolü yap
+            if (root.TryGetProperty("action", out var actionProp))
+            {
+                var action = actionProp.GetString();
+                if (action == "chatmessage" || action == "agentevent")
+                {
+                    _logger.LogDebug("Skipping command lookup for action: {Action}", action);
+                    return;
+                }
+            }
+
             if (!root.TryGetProperty("commandId", out var commandIdProp))
             {
                 _logger.LogWarning("CommandResult missing commandId");
@@ -542,6 +594,19 @@ public class AgentWebSocketMiddleware
             
             _logger.LogInformation("Command {CommandId} completed with status: {Status}, success: {Success}, duration: {Duration}ms, result: {Result}", 
                 commandId, command.Status, success, command.ExecutionDurationMs, command.Result?.Substring(0, Math.Min(200, command.Result?.Length ?? 0)));
+
+            // Check if software command requests inventory refresh
+            bool shouldRefreshInventory = false;
+            if (resultEl2.ValueKind == JsonValueKind.Object && 
+                (string.Equals(command.CommandType, "installsoftware", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(command.CommandType, "uninstallsoftware", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (resultEl2.TryGetProperty("refreshInventory", out var refreshFlag) && refreshFlag.ValueKind == JsonValueKind.True)
+                {
+                    shouldRefreshInventory = true;
+                    _logger.LogInformation("Software operation completed successfully, triggering automatic inventory refresh");
+                }
+            }
 
             // If this was an inventory response, attempt to persist inventory and lists
             try
@@ -736,6 +801,7 @@ public class AgentWebSocketMiddleware
                                         InstallDate = installDate,
                                         SizeInBytes = sizeInBytes,
                                         UninstallString = el.TryGetProperty("uninstallString", out var usEl) && usEl.ValueKind == JsonValueKind.String ? usEl.GetString() : null,
+                                        QuietUninstallString = el.TryGetProperty("quietUninstallString", out var qusEl) && qusEl.ValueKind == JsonValueKind.String ? qusEl.GetString() : null,
                                         InstallLocation = el.TryGetProperty("installLocation", out var ilEl) && ilEl.ValueKind == JsonValueKind.String ? ilEl.GetString() : null,
                                         RegistryPath = el.TryGetProperty("registryPath", out var rpEl) && rpEl.ValueKind == JsonValueKind.String ? rpEl.GetString() : null
                                     };
@@ -789,6 +855,35 @@ public class AgentWebSocketMiddleware
             catch (Exception invEx)
             {
                 _logger.LogError(invEx, "Failed to persist inventory for command {CommandId}", commandId);
+            }
+
+            // Trigger automatic inventory refresh if requested
+            if (shouldRefreshInventory)
+            {
+                try
+                {
+                    _logger.LogInformation("Sending automatic inventory refresh command to device {DeviceId}", command.DeviceId);
+                    var refreshCommand = new
+                    {
+                        action = "getfullinventory",
+                        commandId = Guid.NewGuid().ToString(),
+                        timestamp = DateTime.UtcNow
+                    };
+                    
+                    var sent = await _connectionManager.SendCommandToAgentAsync(command.DeviceId, refreshCommand);
+                    if (sent)
+                    {
+                        _logger.LogInformation("Automatic inventory refresh command sent successfully");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to send automatic inventory refresh command");
+                    }
+                }
+                catch (Exception refreshEx)
+                {
+                    _logger.LogError(refreshEx, "Error sending automatic inventory refresh");
+                }
             }
         }
         catch (Exception ex)
@@ -848,6 +943,61 @@ public class AgentWebSocketMiddleware
         {
             _logger.LogError(ex, "Error handling agentinfo from result");
             return null;
+        }
+    }
+
+    private async Task HandleAgentMessageAsync(JsonElement root, Guid? deviceId, ApplicationDbContext dbContext)
+    {
+        // DeviceId root'tan veya parametreden al
+        if (!deviceId.HasValue && root.TryGetProperty("nodeId", out var nodeIdProp))
+        {
+            var nodeIdStr = nodeIdProp.GetString();
+            if (!string.IsNullOrEmpty(nodeIdStr) && Guid.TryParse(nodeIdStr, out var parsedNodeId))
+            {
+                deviceId = parsedNodeId;
+            }
+        }
+        
+        if (!deviceId.HasValue)
+        {
+            _logger.LogWarning("Received agent message without device ID");
+            return;
+        }
+
+        try
+        {
+            var action = root.GetProperty("action").GetString();
+            
+            if (action == "chatmessage")
+            {
+                var message = root.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : null;
+                var sender = root.TryGetProperty("sender", out var senderEl) ? senderEl.GetString() : "Agent";
+                var timestamp = root.TryGetProperty("timestamp", out var tsEl) ? tsEl.GetDateTime() : DateTime.UtcNow;
+
+                _logger.LogInformation("Chat message from agent {DeviceId}: [{Sender}] {Message}", 
+                    deviceId, sender, message);
+
+                // Chat mesajını cache'e ekle
+                if (!string.IsNullOrEmpty(message))
+                {
+                    Controllers.MessagingController.AddAgentChatMessage(deviceId.Value, sender ?? "Agent", message);
+                    _logger.LogInformation("Chat message added to cache for device {DeviceId}", deviceId);
+                }
+            }
+            else if (action == "agentevent")
+            {
+                var eventType = root.TryGetProperty("eventType", out var typeEl) ? typeEl.GetString() : "unknown";
+                var eventData = root.TryGetProperty("data", out var dataEl) ? dataEl.GetRawText() : "{}";
+
+                _logger.LogInformation("Agent event from {DeviceId}: {EventType} - {Data}", 
+                    deviceId, eventType, eventData);
+
+                // TODO: Event'leri işle (örn: agent crashed, update installed, etc.)
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling agent message from {DeviceId}", deviceId);
         }
     }
 }

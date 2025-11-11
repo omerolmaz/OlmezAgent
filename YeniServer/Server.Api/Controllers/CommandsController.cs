@@ -73,9 +73,9 @@ public class CommandsController : ControllerBase
             // WebSocket üzerinden komutu agent'a gönder
             var command = new
             {
-                action = request.CommandType,
+                commandType = request.CommandType,
                 commandId = result.Data.Id,
-                sessionId = request.SessionId ?? result.Data.SessionId,
+                sessionId = request.SessionId,
                 timestamp = DateTime.UtcNow,
                 parameters = request.Parameters
             };

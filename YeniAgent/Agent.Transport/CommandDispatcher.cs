@@ -20,6 +20,13 @@ public sealed class CommandDispatcher : ICommandDispatcher
 
     public async Task DispatchAsync(AgentCommand command, AgentContext context)
     {
+        // Action null kontrolü
+        if (string.IsNullOrWhiteSpace(command.Action))
+        {
+            _logger.LogError("Komut action boş veya null! CommandId: {CommandId}", command.CommandId);
+            return;
+        }
+
         // Yetki kontrolü
         var effectiveRights = context.UserRights;
         if (effectiveRights == AgentRights.None)

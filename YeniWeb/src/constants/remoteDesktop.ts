@@ -22,3 +22,4 @@ export const REMOTE_KEY_COMBOS: Record<RemoteShortcutId, number[]> = {
   ctrlEsc: [17, 27],
   ctrlShiftEsc: [17, 16, 27],
 };
+

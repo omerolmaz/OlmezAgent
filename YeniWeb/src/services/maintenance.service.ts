@@ -1,4 +1,4 @@
-﻿import { apiService } from './api.service';
+import { apiService } from './api.service';
 import { commandService } from './command.service';
 import type { CommandExecution } from '../types/command.types';
 
@@ -29,7 +29,7 @@ function normalizePayload(payload?: object) {
 }
 
 async function postMaintenanceCommand(route: string, deviceId: string, payload?: object): Promise<CommandExecution> {
-  const response = await apiService.post<{ id: string }>(`/api/maintenance/${route}/${deviceId}`, normalizePayload(payload));
+  const response = await apiService.post<{ id: string }>(`/maintenance/${route}/${deviceId}`, normalizePayload(payload));
   return commandService.waitForCommand(response.id);
 }
 
@@ -49,3 +49,4 @@ export const maintenanceService = {
 };
 
 export default maintenanceService;
+

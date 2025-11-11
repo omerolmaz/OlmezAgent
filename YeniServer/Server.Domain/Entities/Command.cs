@@ -15,8 +15,8 @@ public class Command
     [Required]
     public Guid DeviceId { get; set; }
 
-    [Required]
-    public Guid UserId { get; set; }
+    // UserId nullable - authentication olmadan da komut gönderilebilir
+    public Guid? UserId { get; set; }
 
     [Required]
     [MaxLength(100)]
@@ -24,7 +24,7 @@ public class Command
 
     public CommandCategory Category { get; set; }
 
-    [MaxLength(2000)]
+    // No MaxLength - NVARCHAR(MAX) for large payloads like file uploads
     public string? Parameters { get; set; }
 
     [MaxLength(50)]
@@ -74,5 +74,5 @@ public class Command
     public virtual Device Device { get; set; } = null!;
 
     [ForeignKey(nameof(UserId))]
-    public virtual User User { get; set; } = null!;
+    public virtual User? User { get; set; }
 }

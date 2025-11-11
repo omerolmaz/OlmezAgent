@@ -54,6 +54,8 @@ public sealed class WebSocketResponseWriter : IAgentResponseWriter
                 {
                     action = "commandresult",
                     commandId = result.CommandId,
+                    nodeId = result.NodeId,
+                    sessionId = result.SessionId,
                     status = result.Success ? "Completed" : "Failed",
                     success = result.Success,
                     error = result.Error,

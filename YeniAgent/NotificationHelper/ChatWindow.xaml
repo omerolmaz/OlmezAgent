@@ -1,0 +1,151 @@
+<Window x:Class="NotificationHelper.ChatWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Olmez Agent - Chat" 
+        Height="500" Width="400"
+        WindowStartupLocation="CenterScreen"
+        Background="#2D2D30"
+        ResizeMode="CanResize"
+        MinHeight="300" MinWidth="350"
+        Icon="olmez.ico">
+    
+    <Window.Resources>
+        <!-- Scrollbar stilleri -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="#3E3E42"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+        </Style>
+        
+        <!-- TextBox stilleri -->
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#3E3E42"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#007ACC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="#FFFFFF"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" 
+                                        Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Button stilleri -->
+        <Style x:Key="SendButton" TargetType="Button">
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1C97EA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#005A9E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Mesaj listesi -->
+        <Border Grid.Row="0" 
+                Background="#252526" 
+                BorderBrush="#3E3E42" 
+                BorderThickness="0,0,0,1"
+                Margin="0">
+            <ScrollViewer x:Name="MessageScrollViewer" 
+                         VerticalScrollBarVisibility="Auto"
+                         Padding="10">
+                <ItemsControl x:Name="MessagesPanel">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,5" 
+                                    Padding="10" 
+                                    Background="#3E3E42"
+                                    CornerRadius="6"
+                                    MaxWidth="350"
+                                    HorizontalAlignment="{Binding Alignment}">
+                                <StackPanel>
+                                    <!-- Gönderen ve zaman -->
+                                    <TextBlock Foreground="#858585" 
+                                             FontSize="10" 
+                                             Margin="0,0,0,4">
+                                        <Run Text="{Binding Sender}" FontWeight="SemiBold"/>
+                                        <Run Text=" • "/>
+                                        <Run Text="{Binding Time}"/>
+                                    </TextBlock>
+                                    
+                                    <!-- Mesaj içeriği -->
+                                    <TextBlock Text="{Binding Message}" 
+                                             Foreground="#FFFFFF" 
+                                             FontSize="13"
+                                             TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Input alanı -->
+        <Border Grid.Row="1" 
+                Background="#2D2D30" 
+                Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="MessageInput"
+                         Grid.Column="0"
+                         Style="{StaticResource ModernTextBox}"
+                         AcceptsReturn="False"
+                         MaxLines="3"
+                         TextWrapping="Wrap"
+                         VerticalContentAlignment="Center"
+                         KeyDown="MessageInput_KeyDown"/>
+
+                <Button x:Name="SendButton"
+                        Grid.Column="1"
+                        Style="{StaticResource SendButton}"
+                        Content="Gönder"
+                        Margin="8,0,0,0"
+                        Click="SendButton_Click"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

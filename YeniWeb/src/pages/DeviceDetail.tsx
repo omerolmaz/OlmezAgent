@@ -41,6 +41,7 @@ import { downloadBlob } from '../utils/download';
 import { toErrorMessage } from '../utils/error';
 import type { Device } from '../types/device.types';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuthStore } from '../stores/authStore';
 import {
   OverviewTab,
   InventoryTab,
@@ -53,9 +54,9 @@ import {
   MessagingTab,
   MaintenanceTab,
   ScriptsTab,
-  SoftwareTab,
   PatchesTab,
 } from './device-detail/sections';
+import SoftwareTab from '../components/software/SoftwareTab';
 import type {
   DiagnosticsState,
   InventoryState,
@@ -72,7 +73,6 @@ import type {
   ScriptFormState,
   DiagnosticsBundle,
   QualityLevel,
-  SoftwareState,
   PatchState,
   PatchFormState,
 } from './device-detail/types';
@@ -132,6 +132,7 @@ export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const deviceId = id ?? '';
   const tabs = useMemo<TabDefinition[]>(
     () =>
@@ -178,15 +179,12 @@ export default function DeviceDetail() {
   const remoteSessionRef = useRef<RemoteDesktopSession | null>(null);
   const recordingRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
+  const [terminalSessionId] = useState(() => `terminal-${Date.now()}-${Math.random().toString(36).substring(7)}`);
   const [terminalState, setTerminalState] = useState<TerminalState>({
     shell: 'powershell',
     command: '',
     outputs: [],
     isRunning: false,
-  });
-  const [softwareState, setSoftwareState] = useState<SoftwareState>({
-    loading: false,
-    items: [],
   });
   const [patchState, setPatchState] = useState<PatchState>({
     loading: false,
@@ -198,12 +196,13 @@ export default function DeviceDetail() {
     scheduledTime: '',
   });
   const [messagingForm, setMessagingForm] = useState<MessagingFormState>({
-    action: 'agentmsg',
+    action: 'notify',
     title: '',
     message: '',
     duration: 5000,
     sending: false,
   });
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: string; message: string; timestamp: string }>>([]);
   const [maintenanceForm, setMaintenanceForm] = useState<MaintenanceFormState>({
     version: '',
     channel: '',
@@ -629,25 +628,31 @@ export default function DeviceDetail() {
     try {
       const response = await commandService.executeAndWait<string>({
         deviceId,
-        commandType: 'execute',
-        parameters: { command: trimmed, shell },
+        commandType: 'console',
+        parameters: { operation: 'execute', command: trimmed, shell },
+        sessionId: terminalSessionId,
       });
+      
+      // Response'tan output'u çıkar
       const payload = response.data ?? response.command?.result ?? '';
-      const formatted =
-        typeof payload === 'string'
-          ? payload
-          : payload
-            ? JSON.stringify(payload, null, 2)
-            : '';
-      const text = formatted && formatted !== 'undefined' ? formatted : '';
+      let outputText = '';
+      
+      if (typeof payload === 'string') {
+        outputText = payload;
+      } else if (payload && typeof payload === 'object') {
+        // Agent'tan gelen JSON response'u parse et
+        const parsedPayload = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        outputText = parsedPayload.output || parsedPayload.error || JSON.stringify(parsedPayload, null, 2);
+      }
+      
       const status = response.success ? 'success' : 'error';
       const entry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         cmd: trimmed,
         result:
           status === 'success'
-            ? text || t('deviceDetail.terminal.runSuccess')
-            : response.error ?? (text || t('deviceDetail.terminal.runError')),
+            ? outputText || t('deviceDetail.terminal.runSuccess')
+            : response.error ?? (outputText || t('deviceDetail.terminal.runError')),
         time: timestamp,
         status,
       } as TerminalState['outputs'][number];
@@ -678,60 +683,12 @@ export default function DeviceDetail() {
     }
   }, [deviceId, terminalState.command, terminalState.isRunning, terminalState.shell, t]);
 
-  const loadSoftware = useCallback(async () => {
-    if (!deviceId) return;
-    setSoftwareState((prev) => ({ ...prev, loading: true, error: undefined, message: undefined }));
-    try {
-      // Get software from database
-      const software = await inventoryService.getInstalledSoftware(deviceId);
-      
-      console.log('Software loaded from database:', software.length);
-      setSoftwareState({
-        loading: false,
-        items: software || [],
-        message: undefined,
-      });
-    } catch (error) {
-      console.error('Software load error:', error);
-      setSoftwareState({
-        loading: false,
-        items: [],
-        error: toErrorMessage(error, t('deviceDetail.software.error')),
-      });
-    }
-  }, [deviceId, t]);
-
-  const handleSoftwareUninstall = useCallback(
-    async (productName: string) => {
-      if (!deviceId) return;
-      setSoftwareState((prev) => ({ ...prev, actionTarget: productName, message: undefined, error: undefined }));
-      try {
-        await softwareService.uninstallSoftware(deviceId, { productName });
-        setSoftwareState((prev) => ({
-          ...prev,
-          actionTarget: undefined,
-          message: t('deviceDetail.software.uninstallQueued'),
-        }));
-        loadSoftware();
-      } catch (error) {
-        setSoftwareState((prev) => ({
-          ...prev,
-          actionTarget: undefined,
-          error: toErrorMessage(error, t('deviceDetail.software.error')),
-        }));
-      }
-    },
-    [deviceId, loadSoftware, t],
-  );
-
   const loadPatches = useCallback(async () => {
     if (!deviceId) return;
     setPatchState((prev) => ({ ...prev, loading: true, error: undefined, message: undefined }));
     try {
       // Get installed patches from database only
       const installedPatches = await inventoryService.getInstalledPatches(deviceId);
-      
-      console.log('Patches loaded - installed:', installedPatches.length);
       
       setPatchState({
         loading: false,
@@ -833,36 +790,19 @@ export default function DeviceDetail() {
     setMessagingForm((prev) => ({ ...prev, sending: true, feedback: undefined, error: undefined }));
     try {
       const fallbackTitle = messagingForm.title || t('deviceDetail.messaging.defaultTitle');
-      switch (messagingForm.action) {
-        case 'agentmsg':
-          await messagingService.sendAgentMessage(deviceId, { message: messagingForm.message });
-          break;
-        case 'messagebox':
-          await messagingService.showMessageBox(deviceId, {
-            title: fallbackTitle,
-            message: messagingForm.message,
-            type: 'info',
-          });
-          break;
-        case 'notify':
-          await messagingService.sendNotification(deviceId, {
-            title: fallbackTitle,
-            message: messagingForm.message,
-          });
-          break;
-        case 'toast':
-          await messagingService.showToast(deviceId, {
-            title: fallbackTitle,
-            message: messagingForm.message,
-            duration: messagingForm.duration,
-          });
-          break;
-        case 'chat':
-          await messagingService.sendChatMessage(deviceId, { message: messagingForm.message });
-          break;
-        default:
-          break;
+      
+      if (messagingForm.action === 'notify') {
+        await messagingService.sendNotification(deviceId, {
+          title: fallbackTitle,
+          message: messagingForm.message,
+        });
+      } else if (messagingForm.action === 'chat') {
+        await messagingService.sendChatMessage(deviceId, { 
+          message: messagingForm.message,
+          fromUser: user?.username || 'Admin'
+        });
       }
+      
       setMessagingForm((prev) => ({
         ...prev,
         sending: false,
@@ -878,7 +818,27 @@ export default function DeviceDetail() {
         error: toErrorMessage(error, t('deviceDetail.messaging.error')),
       }));
     }
-  }, [deviceId, messagingForm.action, messagingForm.duration, messagingForm.message, messagingForm.title, t]);
+  }, [deviceId, messagingForm.action, messagingForm.message, messagingForm.title, t, user]);
+
+  // Chat mesajlarını yükle
+  useEffect(() => {
+    if (activeTab === 'messaging' && messagingForm.action === 'chat' && deviceId) {
+      const loadChatMessages = async () => {
+        try {
+          const messages = await messagingService.getChatMessages(deviceId);
+          setChatMessages(messages);
+        } catch (error) {
+          console.error('Failed to load chat messages:', error);
+        }
+      };
+      
+      loadChatMessages();
+      
+      // Her 3 saniyede bir yenile
+      const interval = setInterval(loadChatMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, messagingForm.action, deviceId]);
 
   const updateMaintenanceFields = useCallback((patch: Partial<MaintenanceFormState>) => {
     setMaintenanceForm((prev) => ({ ...prev, ...patch }));
@@ -1074,10 +1034,6 @@ export default function DeviceDetail() {
     setInventory({ loading: true });
     try {
       const result = await inventoryService.getFullInventory(deviceId);
-      console.log('Inventory API Response:', result);
-      console.log('Inventory result.data:', result.data);
-      console.log('Inventory software count:', result.data?.software?.length);
-      console.log('Inventory software sample:', result.data?.software?.slice(0, 3));
       
       if (!result.success || !result.data) {
         setInventory({
@@ -1116,10 +1072,6 @@ export default function DeviceDetail() {
     });
     try {
       const result = await eventLogsService.getAll(deviceId, { maxEvents: 100 });
-      console.log('EventLogs API Response:', result);
-      console.log('EventLogs result.data:', result.data);
-      console.log('EventLogs result.data type:', typeof result.data);
-      console.log('EventLogs is array?', Array.isArray(result.data));
       
       // Ensure items is always an array
       let items: any[] = [];
@@ -1135,13 +1087,9 @@ export default function DeviceDetail() {
           items = (result.data as any).logs;
         } else if (Array.isArray((result.data as any).entries)) {
           items = (result.data as any).entries;
-        } else {
-          console.warn('EventLogs data is object but no array found:', result.data);
         }
       }
       
-      console.log('EventLogs final items:', items);
-      console.log('EventLogs items count:', items.length);
       setEventLogs({ loading: false, items });
     } catch (error) {
       console.error('EventLogs error:', error);
@@ -1191,9 +1139,6 @@ export default function DeviceDetail() {
         break;
       case 'eventlogs':
         loadEventLogs();
-        break;
-      case 'software':
-        loadSoftware();
         break;
       case 'patches':
         loadPatches();
@@ -1385,8 +1330,8 @@ export default function DeviceDetail() {
         {activeTab === 'eventlogs' && (
           <EventLogsTab state={eventLogs} onRefresh={loadEventLogs} deviceId={device.id} />
         )}
-        {activeTab === 'software' && (
-          <SoftwareTab state={softwareState} onRefresh={loadSoftware} onUninstall={handleSoftwareUninstall} />
+        {activeTab === 'software' && deviceId && (
+          <SoftwareTab deviceId={deviceId} />
         )}
         {activeTab === 'patches' && (
           <PatchesTab
@@ -1419,6 +1364,7 @@ export default function DeviceDetail() {
             onChange={updateMessagingForm}
             onSend={handleMessagingSend}
             disabled={!deviceId}
+            chatMessages={chatMessages}
           />
         )}
         {activeTab === 'maintenance' && (
@@ -1447,50 +1393,4 @@ export default function DeviceDetail() {
     </div>
   );
 }
-  const handleRemoteToggleRecording = useCallback(async () => {
-    if (remoteRecording) {
-      if (recordingRef.current) {
-        recordingRef.current.stop();
-      }
-      return;
-    }
-    if (!canvasRef.current || !remoteControl.session) {
-      setRemoteControl((prev) => ({
-        ...prev,
-        error: t('deviceDetail.remoteDesktop.recordingError'),
-      }));
-      return;
-    }
-    try {
-      const stream = canvasRef.current.captureStream(Math.max(1, remoteFps));
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-      recordingChunksRef.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) {
-          recordingChunksRef.current.push(event.data);
-        }
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
-        recordingChunksRef.current = [];
-        if (blob.size > 0) {
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const filename = `remote-desktop-${device?.hostname ?? deviceId}-${timestamp}.webm`;
-          downloadBlob(blob, filename);
-        }
-        recordingRef.current = null;
-        setRemoteRecording(false);
-      };
-      recorder.start();
-      recordingRef.current = recorder;
-      setRemoteRecording(true);
-    } catch (error) {
-      recordingRef.current = null;
-      recordingChunksRef.current = [];
-      setRemoteRecording(false);
-      setRemoteControl((prev) => ({
-        ...prev,
-        error: toErrorMessage(error, t('deviceDetail.remoteDesktop.recordingError')),
-      }));
-    }
-  }, [remoteRecording, remoteControl.session, remoteFps, device?.hostname, deviceId, t]);
+

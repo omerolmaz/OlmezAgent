@@ -36,7 +36,8 @@ public sealed class RemoteOperationsModule : AgentModuleBase
         "kvmmode",
         "wakeonlan",
         "clipboardget",
-        "clipboardset"
+        "clipboardset",
+        "file_browser"
     };
 
     private readonly ConcurrentDictionary<string, ConsoleSession> _consoleSessions = new(StringComparer.OrdinalIgnoreCase);
@@ -95,6 +96,9 @@ public sealed class RemoteOperationsModule : AgentModuleBase
                 return true;
             case "clipboardset":
                 await HandleClipboardSetAsync(command, context).ConfigureAwait(false);
+                return true;
+            case "file_browser":
+                await HandleFileBrowserAsync(command, context).ConfigureAwait(false);
                 return true;
             case "wallpaper":
             case "kvmmode":
@@ -178,6 +182,78 @@ public sealed class RemoteOperationsModule : AgentModuleBase
                         ["sessionId"] = sessionId,
                         ["output"] = output
                     })).ConfigureAwait(false);
+                break;
+
+            case "execute":
+                // Tek seferlik komut çalıştır ve sonucu döndür
+                var execShell = GetString(parameters, "shell", "Shell") ?? "powershell";
+                var execCommand = GetString(parameters, "command", "Command");
+                
+                if (string.IsNullOrWhiteSpace(execCommand))
+                {
+                    await SendNotImplementedAsync(command, context, "Command parameter is required for execute operation.").ConfigureAwait(false);
+                    return;
+                }
+
+                try
+                {
+                    var execSession = await ConsoleSession.StartAsync(execShell, null).ConfigureAwait(false);
+                    try
+                    {
+                        await execSession.SendInputAsync(execCommand + "\n").ConfigureAwait(false);
+                        
+                        // Komutun çalışması için biraz bekle
+                        await Task.Delay(500).ConfigureAwait(false);
+                        
+                        // Çıktıyı oku (maksimum 5 saniye bekle)
+                        var execOutput = string.Empty;
+                        for (int i = 0; i < 10; i++)
+                        {
+                            var chunk = execSession.ReadOutput();
+                            if (!string.IsNullOrEmpty(chunk))
+                            {
+                                execOutput += chunk;
+                            }
+                            
+                            if (i < 9) // Son iterasyonda bekleme
+                                await Task.Delay(500).ConfigureAwait(false);
+                        }
+
+                        await context.ResponseWriter.SendAsync(new CommandResult(
+                            command.Action,
+                            command.CommandId,
+                            command.NodeId,
+                            command.SessionId,
+                            new JsonObject
+                            {
+                                ["sessionId"] = sessionId,
+                                ["command"] = execCommand,
+                                ["shell"] = execShell,
+                                ["output"] = execOutput,
+                                ["success"] = true
+                            })).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        await execSession.DisposeAsync().ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await context.ResponseWriter.SendAsync(new CommandResult(
+                        command.Action,
+                        command.CommandId,
+                        command.NodeId,
+                        command.SessionId,
+                        new JsonObject
+                        {
+                            ["sessionId"] = sessionId,
+                            ["command"] = execCommand,
+                            ["shell"] = execShell,
+                            ["error"] = ex.Message,
+                            ["success"] = false
+                        })).ConfigureAwait(false);
+                }
                 break;
 
             case "stop":
@@ -1116,5 +1192,159 @@ public sealed class RemoteOperationsModule : AgentModuleBase
         }
 
         return null;
+    }
+
+    private async Task HandleFileBrowserAsync(AgentCommand command, AgentContext context)
+    {
+        try
+        {
+            var parameters = GetParametersObject(command.Payload);
+            var operation = (GetString(parameters, "operation", "Operation") ?? "list").ToLowerInvariant();
+
+            switch (operation)
+            {
+                case "list":
+                    var path = GetString(parameters, "path", "Path") ?? "C:\\";
+                    await ListDirectoryAsync(command, context, path).ConfigureAwait(false);
+                    break;
+
+                case "drives":
+                    await ListDrivesAsync(command, context).ConfigureAwait(false);
+                    break;
+
+                default:
+                    await SendNotImplementedAsync(command, context, $"File browser operation '{operation}' is not supported.").ConfigureAwait(false);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in file browser operation");
+            await SendNotImplementedAsync(command, context, $"File browser error: {ex.Message}").ConfigureAwait(false);
+        }
+    }
+
+    private async Task ListDirectoryAsync(AgentCommand command, AgentContext context, string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+            {
+                await SendNotImplementedAsync(command, context, $"Directory not found: {path}").ConfigureAwait(false);
+                return;
+            }
+
+            var items = new List<JsonObject>();
+
+            // Add directories
+            foreach (var dir in Directory.GetDirectories(path))
+            {
+                try
+                {
+                    var dirInfo = new DirectoryInfo(dir);
+                    items.Add(new JsonObject
+                    {
+                        ["name"] = dirInfo.Name,
+                        ["path"] = dirInfo.FullName,
+                        ["isDirectory"] = true,
+                        ["size"] = 0,
+                        ["modified"] = dirInfo.LastWriteTime.ToString("o")
+                    });
+                }
+                catch
+                {
+                    // Skip inaccessible directories
+                }
+            }
+
+            // Add files (only .exe and .msi for installation)
+            foreach (var file in Directory.GetFiles(path))
+            {
+                try
+                {
+                    var fileInfo = new FileInfo(file);
+                    var extension = fileInfo.Extension.ToLowerInvariant();
+                    
+                    // Only include executable files
+                    if (extension == ".exe" || extension == ".msi")
+                    {
+                        items.Add(new JsonObject
+                        {
+                            ["name"] = fileInfo.Name,
+                            ["path"] = fileInfo.FullName,
+                            ["isDirectory"] = false,
+                            ["size"] = fileInfo.Length,
+                            ["modified"] = fileInfo.LastWriteTime.ToString("o")
+                        });
+                    }
+                }
+                catch
+                {
+                    // Skip inaccessible files
+                }
+            }
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action,
+                command.CommandId,
+                command.NodeId,
+                command.SessionId,
+                new JsonObject
+                {
+                    ["items"] = new JsonArray(items.ToArray()),
+                    ["path"] = path
+                })).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error listing directory: {Path}", path);
+            await SendNotImplementedAsync(command, context, $"Failed to list directory: {ex.Message}").ConfigureAwait(false);
+        }
+    }
+
+    private async Task ListDrivesAsync(AgentCommand command, AgentContext context)
+    {
+        try
+        {
+            var drives = new List<JsonObject>();
+
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                try
+                {
+                    if (drive.IsReady)
+                    {
+                        drives.Add(new JsonObject
+                        {
+                            ["name"] = drive.Name,
+                            ["path"] = drive.RootDirectory.FullName,
+                            ["type"] = drive.DriveType.ToString(),
+                            ["totalSize"] = drive.TotalSize,
+                            ["freeSpace"] = drive.AvailableFreeSpace,
+                            ["label"] = drive.VolumeLabel ?? drive.Name
+                        });
+                    }
+                }
+                catch
+                {
+                    // Skip inaccessible drives
+                }
+            }
+
+            await context.ResponseWriter.SendAsync(new CommandResult(
+                command.Action,
+                command.CommandId,
+                command.NodeId,
+                command.SessionId,
+                new JsonObject
+                {
+                    ["drives"] = new JsonArray(drives.ToArray())
+                })).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error listing drives");
+            await SendNotImplementedAsync(command, context, $"Failed to list drives: {ex.Message}").ConfigureAwait(false);
+        }
     }
 }

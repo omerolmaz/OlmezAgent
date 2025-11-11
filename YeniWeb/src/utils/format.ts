@@ -58,3 +58,4 @@ export function formatRelativeTime(value?: string | null, locale: string = 'en-G
   const diffDays = Math.round(diffHours / 24);
   return rtf.format(diffDays, 'day');
 }
+

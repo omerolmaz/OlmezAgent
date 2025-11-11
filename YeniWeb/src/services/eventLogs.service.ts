@@ -37,7 +37,7 @@ async function runEventLogCommand<T = EventLogEntry[]>(
   timeoutMs = 20000,
 ) {
   const payload = body ?? { maxEvents: 100 };
-  const response = await apiService.post<{ id: string }>(`/api/eventlog/${route}/${deviceId}`, payload);
+  const response = await apiService.post<{ id: string }>(`/eventlog/${route}/${deviceId}`, payload);
   const command = await commandService.waitForCommand(response.id, { timeoutMs });
   const parsed = command.result ? (JSON.parse(command.result) as T) : undefined;
 
@@ -63,18 +63,19 @@ export const eventLogsService = {
     return runEventLogCommand(deviceId, 'system', payload);
   },
   async startMonitor(deviceId: string, payload: EventMonitorOptions) {
-    const response = await apiService.post<{ id: string }>(`/api/eventlog/monitor/start/${deviceId}`, payload);
+    const response = await apiService.post<{ id: string }>(`/eventlog/monitor/start/${deviceId}`, payload);
     return commandService.waitForCommand(response.id);
   },
   async stopMonitor(deviceId: string, payload: StopMonitorOptions) {
-    const response = await apiService.post<{ id: string }>(`/api/eventlog/monitor/stop/${deviceId}`, payload);
+    const response = await apiService.post<{ id: string }>(`/eventlog/monitor/stop/${deviceId}`, payload);
     return commandService.waitForCommand(response.id);
   },
   async clearLog(deviceId: string, payload: ClearLogOptions) {
-    const response = await apiService.post<{ id: string }>(`/api/eventlog/clear/${deviceId}`, payload);
+    const response = await apiService.post<{ id: string }>(`/eventlog/clear/${deviceId}`, payload);
     return commandService.waitForCommand(response.id);
   },
 };
 
 export default eventLogsService;
+
 

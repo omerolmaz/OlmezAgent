@@ -91,15 +91,15 @@ export const remoteDesktopService = {
   },
 
   async sendMouseMove(deviceId: string, sessionId: string, x: number, y: number) {
-    return apiService.post('/api/remote-desktop/input/move', { deviceId, sessionId, x, y });
+    return apiService.post('/remote-desktop/input/move', { deviceId, sessionId, x, y });
   },
 
   async sendMouseButton(deviceId: string, sessionId: string, button: number, action: 'down' | 'up' | 'click') {
-    return apiService.post('/api/remote-desktop/input/button', { deviceId, sessionId, button, action });
+    return apiService.post('/remote-desktop/input/button', { deviceId, sessionId, button, action });
   },
 
   async sendKey(deviceId: string, sessionId: string, keyCode: number, action: 'down' | 'up' | 'press') {
-    return apiService.post('/api/remote-desktop/input/key', { deviceId, sessionId, keyCode, action });
+    return apiService.post('/remote-desktop/input/key', { deviceId, sessionId, keyCode, action });
   },
 
   async sendKeySequence(deviceId: string, sessionId: string, keys: number[]) {
@@ -115,3 +115,4 @@ export const remoteDesktopService = {
 };
 
 export default remoteDesktopService;
+

@@ -110,6 +110,7 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(c => c.User)
                 .WithMany()
                 .HasForeignKey(c => c.UserId)
+                .IsRequired(false)  // UserId nullable - foreign key optional
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

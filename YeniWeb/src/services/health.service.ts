@@ -5,7 +5,7 @@ import type { CommandResultPayload } from '../types/command.types';
 
 export const healthService = {
   async getMetrics(deviceId: string): Promise<CommandResultPayload<PerformanceMetrics>> {
-    const response = await apiService.post<{ id: string }>(`/api/health/metrics/${deviceId}`);
+    const response = await apiService.post<{ id: string }>(`/health/metrics/${deviceId}`);
     const command = await commandService.waitForCommand(response.id, { timeoutMs: 10000, pollIntervalMs: 500 });
     const parsed = command.result ? (JSON.parse(command.result) as PerformanceMetrics) : undefined;
 
@@ -18,7 +18,7 @@ export const healthService = {
   },
 
   async getHealthCheck(deviceId: string) {
-    const response = await apiService.post<{ id: string }>(`/api/health/check/${deviceId}`);
+    const response = await apiService.post<{ id: string }>(`/health/check/${deviceId}`);
     const command = await commandService.waitForCommand(response.id, { timeoutMs: 10000, pollIntervalMs: 500 });
     const parsed = command.result ? JSON.parse(command.result) : undefined;
     return {
@@ -30,7 +30,7 @@ export const healthService = {
   },
 
   async getUptime(deviceId: string) {
-    const response = await apiService.post<{ id: string }>(`/api/health/uptime/${deviceId}`);
+    const response = await apiService.post<{ id: string }>(`/health/uptime/${deviceId}`);
     const command = await commandService.waitForCommand(response.id, { timeoutMs: 10000, pollIntervalMs: 500 });
     const parsed = command.result ? JSON.parse(command.result) : undefined;
     return {
@@ -43,5 +43,6 @@ export const healthService = {
 };
 
 export default healthService;
+
 
 

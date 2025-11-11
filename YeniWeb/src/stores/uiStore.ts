@@ -17,3 +17,4 @@ export const useUiStore = create<UiState>((set, get) => ({
 }));
 
 export default useUiStore;
+

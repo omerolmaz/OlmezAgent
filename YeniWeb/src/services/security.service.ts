@@ -10,7 +10,7 @@ async function runSecurityCommand<T = SecuritySnapshot>(
   deviceId: string,
   command: SecurityCommand,
 ): Promise<CommandResultPayload<T>> {
-  const endpoint = `/api/security/${command}/${deviceId}`;
+  const endpoint = `/security/${command}/${deviceId}`;
   const executeResponse = await apiService.post<{ id: string }>(endpoint);
   const completed = await commandService.waitForCommand(executeResponse.id);
   const parsed = completed.result ? (JSON.parse(completed.result) as T) : undefined;
@@ -69,4 +69,5 @@ export const securityService = {
 };
 
 export default securityService;
+
 

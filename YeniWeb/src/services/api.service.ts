@@ -6,8 +6,14 @@ class ApiService {
   private api: AxiosInstance;
 
   constructor() {
+    // Use relative path for API calls - works with Vite proxy in dev and same-origin in production
+    // Can be overridden with VITE_API_URL env variable if needed
+    const baseURL = config.isDevelopment 
+      ? '/api'  // Development: Use Vite proxy
+      : (import.meta.env.VITE_API_URL || '/api'); // Production: Use env var or relative path
+    
     this.api = axios.create({
-      baseURL: config.apiUrl,
+      baseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -80,4 +86,5 @@ class ApiService {
 
 export const apiService = new ApiService();
 export default apiService;
+
 

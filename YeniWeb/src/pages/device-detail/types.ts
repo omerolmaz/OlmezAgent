@@ -37,7 +37,7 @@ export interface PerformanceState {
   error?: string;
 }
 
-export type MessagingAction = 'agentmsg' | 'messagebox' | 'notify' | 'toast' | 'chat';
+export type MessagingAction = 'notify' | 'chat';
 
 export interface MessagingFormState {
   action: MessagingAction;
@@ -145,4 +145,5 @@ export type DiagnosticsBundle = [
   CommandResultPayload<Record<string, unknown>>,
   CommandResultPayload<Record<string, unknown>>,
 ];
+
 

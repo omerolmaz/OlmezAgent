@@ -328,3 +328,4 @@ function QuickActions({ navigate }: { navigate: ReturnType<typeof useNavigate> }
     </section>
   );
 }
+

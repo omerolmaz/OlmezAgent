@@ -5,7 +5,7 @@ class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     // Backend directly returns LoginResponse (not wrapped in ApiResponse)
     const response = await apiService.post<LoginResponse>(
-      '/api/users/login',
+      '/users/login',
       credentials
     );
     
@@ -44,4 +44,5 @@ class AuthService {
 
 export const authService = new AuthService();
 export default authService;
+
 

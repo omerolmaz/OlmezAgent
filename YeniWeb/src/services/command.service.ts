@@ -45,7 +45,7 @@ function tryParseResult<T>(result?: string | null): T | undefined {
 export const commandService = {
   async getCommandById(id: string): Promise<CommandExecution> {
     try {
-      const response = await apiService.get<CommandExecution>(`/api/commands/${id}`);
+      const response = await apiService.get<CommandExecution>(`/commands/${id}`);
       return response;
     } catch (error) {
       console.error('Error fetching command:', error);
@@ -55,7 +55,7 @@ export const commandService = {
 
   async getCommandsByDevice(deviceId: string): Promise<CommandExecution[]> {
     try {
-      const response = await apiService.get<CommandExecution[]>(`/api/commands/device/${deviceId}`);
+      const response = await apiService.get<CommandExecution[]>(`/commands/device/${deviceId}`);
       return response;
     } catch (error) {
       console.error('Error fetching commands:', error);
@@ -77,7 +77,7 @@ export const commandService = {
         sessionId: request.sessionId ?? null,
       };
 
-      const response = await apiService.post<ExecuteCommandResponse>('/api/commands/execute', payload);
+      const response = await apiService.post<ExecuteCommandResponse>('/commands/execute', payload);
       return response;
     } catch (error) {
       console.error('Error executing command:', error);
@@ -105,7 +105,7 @@ export const commandService = {
 
   async getActiveConnections(): Promise<ActiveConnectionsSnapshot> {
     try {
-      const response = await apiService.get<CommandEnvelope<ActiveConnectionsSnapshot>>('/api/commands/active');
+      const response = await apiService.get<CommandEnvelope<ActiveConnectionsSnapshot>>('/commands/active');
       return response.data;
     } catch (error) {
       console.error('Error fetching active connections:', error);
@@ -116,7 +116,7 @@ export const commandService = {
   async getDeviceConnectionStatus(deviceId: string): Promise<CommandEnvelope<{ deviceId: string; isConnected: boolean; timestamp: string }>> {
     try {
       const response = await apiService.get<CommandEnvelope<{ deviceId: string; isConnected: boolean; timestamp: string }>>(
-        `/api/commands/status/${deviceId}`,
+        `/commands/status/${deviceId}`,
       );
       return response;
     } catch (error) {
@@ -132,3 +132,4 @@ export const commandService = {
 };
 
 export default commandService;
+

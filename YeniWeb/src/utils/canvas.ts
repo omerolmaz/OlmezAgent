@@ -38,3 +38,4 @@ export async function downloadCanvasImage(canvas: HTMLCanvasElement, filename: s
   }
   await saveBlob(new Blob([buffer], { type: mimeString }));
 }
+

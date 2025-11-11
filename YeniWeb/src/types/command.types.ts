@@ -54,3 +54,4 @@ export interface ActiveConnectionsSnapshot {
   deviceIds: string[];
   timestamp: string;
 }
+

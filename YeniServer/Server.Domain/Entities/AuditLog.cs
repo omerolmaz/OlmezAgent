@@ -11,8 +11,8 @@ public class AuditLog
     [Key]
     public Guid Id { get; set; }
 
-    [Required]
-    public Guid UserId { get; set; }
+    // UserId nullable - system actions may not have a user
+    public Guid? UserId { get; set; }
 
     public Guid? DeviceId { get; set; }
 
@@ -47,7 +47,7 @@ public class AuditLog
 
     // Navigation properties
     [ForeignKey(nameof(UserId))]
-    public virtual User User { get; set; } = null!;
+    public virtual User? User { get; set; }
 
     [ForeignKey(nameof(DeviceId))]
     public virtual Device? Device { get; set; }
