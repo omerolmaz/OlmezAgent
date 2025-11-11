@@ -17,6 +17,7 @@ import {
   Archive,
   Send,
   Play,
+  Square,
   ExternalLink,
   Camera,
   Video,
@@ -1271,12 +1272,14 @@ export function RemoteDesktopTab({
   quality,
   fps,
   showSettings,
+  isRecording,
   isFullscreen,
   onQualityChange,
   onFpsChange,
   onConnect,
   onDisconnect,
   onToggleSettings,
+  onToggleRecording,
   onToggleFullscreen,
   onOpenWorkspace,
   onMouseMove,
@@ -1295,12 +1298,14 @@ export function RemoteDesktopTab({
   quality: QualityLevel;
   fps: number;
   showSettings: boolean;
+  isRecording: boolean;
   isFullscreen: boolean;
   onQualityChange: (value: QualityLevel) => void;
   onFpsChange: (value: number) => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onToggleSettings: () => void;
+  onToggleRecording: () => void;
   onToggleFullscreen: () => void;
   onOpenWorkspace: () => void;
   onMouseMove: (coords: { x: number; y: number }) => void;
@@ -1390,12 +1395,14 @@ export function RemoteDesktopTab({
                 <Camera className="h-4 w-4" />
               </button>
               <button
-                onClick={() => undefined}
-                disabled
-                className="rounded-lg border border-dashed border-border/70 p-2 text-muted-foreground/60 cursor-not-allowed"
-                title={t('desktop.recordingComingSoon')}
+                onClick={onToggleRecording}
+                className={`rounded-lg p-2 transition ${
+                  isRecording ? 'bg-destructive text-white' : 'border border-border bg-secondary/40 text-muted-foreground hover:bg-secondary/70'
+                }`}
+                title={isRecording ? t('desktop.recordingStop') : t('desktop.recordingStart')}
+                disabled={disabled || !canvasRef.current}
               >
-                <Video className="h-4 w-4" />
+                {isRecording ? <Square className="h-4 w-4" /> : <Video className="h-4 w-4" />}
               </button>
               <button
                 onClick={onToggleFullscreen}

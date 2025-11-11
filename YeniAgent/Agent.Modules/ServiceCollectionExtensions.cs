@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
 
         // Inventory & system modules
         services.AddSingleton<IAgentModule, InventoryModule>();
+        services.AddSingleton<IAgentModule, SoftwareModule>();
         services.AddSingleton<IAgentModule, SoftwareDistributionModule>();
 
         // Remote operations

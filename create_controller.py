@@ -1,4 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+content = '''using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Server.Application.Interfaces;
@@ -28,27 +31,6 @@ public class SoftwareController : ControllerBase
         _logger = logger;
     }
 
-    private async Task<Guid> SendDeviceCommandAsync(Guid deviceId, string commandType, Dictionary<string, object> parameters)
-    {
-        var userId = Guid.Parse(User.FindFirst("sub")?.Value ?? Guid.Empty.ToString());
-        var parametersJson = parameters.Count > 0 ? JsonSerializer.Serialize(parameters) : null;
-        
-        var request = new Server.Application.DTOs.Command.ExecuteCommandRequest
-        {
-            DeviceId = deviceId,
-            CommandType = commandType,
-            Parameters = parametersJson
-        };
-
-        var result = await _commandService.ExecuteCommandAsync(request, userId);
-        if (result.Success && result.Data != null)
-        {
-            return result.Data.Id;
-        }
-        
-        throw new Exception(result.ErrorMessage ?? "Failed to execute command");
-    }
-
     [HttpGet("{deviceId}")]
     public async Task<IActionResult> GetInstalledSoftware(Guid deviceId)
     {
@@ -68,7 +50,7 @@ public class SoftwareController : ControllerBase
             if (device == null)
                 return NotFound(new { message = "Device not found" });
 
-            var commandId = await SendDeviceCommandAsync(
+            var commandId = await _commandService.SendCommandAsync(
                 deviceId,
                 AgentCommands.Categories.GetInstalledSoftware,
                 new Dictionary<string, object>()
@@ -127,7 +109,7 @@ public class SoftwareController : ControllerBase
                 ["pendingActionId"] = pendingAction.Id.ToString()
             };
 
-            var commandId = await SendDeviceCommandAsync(deviceId, AgentCommands.Categories.InstallSoftware, commandData);
+            var commandId = await _commandService.SendCommandAsync(deviceId, AgentCommands.Categories.InstallSoftware, commandData);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = $"Software installation started for {Path.GetFileName(request.FilePath)}. Check pending actions for status.", pendingActionId = pendingAction.Id, commandId });
@@ -196,7 +178,7 @@ public class SoftwareController : ControllerBase
                 ["historyId"] = history.Id.ToString()
             };
 
-            var commandId = await SendDeviceCommandAsync(deviceId, AgentCommands.Categories.UninstallSoftware, commandData);
+            var commandId = await _commandService.SendCommandAsync(deviceId, AgentCommands.Categories.UninstallSoftware, commandData);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = $"{request.Name} will now be uninstalled on {device.Hostname}.", pendingActionId = pendingAction.Id, commandId });
@@ -252,7 +234,7 @@ public class SoftwareController : ControllerBase
                 ["pendingActionId"] = pendingAction.Id.ToString()
             };
 
-            var commandId = await SendDeviceCommandAsync(deviceId, AgentCommands.Categories.InstallWithChoco, commandData);
+            var commandId = await _commandService.SendCommandAsync(deviceId, AgentCommands.Categories.InstallWithChoco, commandData);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = $"{request.PackageName} will be installed shortly on {device.Hostname}. Check pending actions for status.", pendingActionId = pendingAction.Id, commandId });
@@ -273,7 +255,7 @@ public class SoftwareController : ControllerBase
             if (device == null)
                 return NotFound(new { message = "Device not found" });
 
-            var commandId = await SendDeviceCommandAsync(deviceId, AgentCommands.Categories.InstallChoco, new Dictionary<string, object>());
+            var commandId = await _commandService.SendCommandAsync(deviceId, AgentCommands.Categories.InstallChoco, new Dictionary<string, object>());
             return Ok(new { message = "Chocolatey installation started", commandId });
         }
         catch (Exception ex)
@@ -320,3 +302,11 @@ public class InstallChocoRequest
     public string? Version { get; set; }
     public bool Force { get; set; } = true;
 }
+'''
+
+target_path = r"C:\Users\ÖMERÖLMEZ\OneDrive - SiteTelekom\Masaüstü\Yeni klasör\YeniServer\Server.Api\Controllers\SoftwareController.cs"
+
+with open(target_path, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print("✅ SoftwareController.cs başarıyla oluşturuldu!")

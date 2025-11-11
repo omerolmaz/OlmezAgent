@@ -88,11 +88,13 @@ public static class AgentCommands
         public const string StopEventMonitor = "stopeventmonitor";
         public const string ClearEventLog = "cleareventlog";
 
-        // Software Distribution Commands (4)
+        // Software Distribution Commands (6)
         public const string InstallSoftware = "installsoftware";
         public const string UninstallSoftware = "uninstallsoftware";
         public const string InstallUpdates = "installupdates";
         public const string SchedulePatch = "schedulepatch";
+        public const string InstallChoco = "installchoco";
+        public const string InstallWithChoco = "installwithchoco";
 
         // Maintenance Commands (6)
         public const string AgentUpdate = "agentupdate";
@@ -178,9 +180,10 @@ public static class AgentCommands
         Categories.StartEventMonitor, Categories.StopEventMonitor, 
         Categories.ClearEventLog,
         
-        // Software (4)
+        // Software (6)
         Categories.InstallSoftware, Categories.UninstallSoftware, 
         Categories.InstallUpdates, Categories.SchedulePatch,
+        Categories.InstallChoco, Categories.InstallWithChoco,
         
         // Maintenance (6)
         Categories.AgentUpdate, Categories.AgentUpdateEx, 

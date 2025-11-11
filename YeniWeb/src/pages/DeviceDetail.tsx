@@ -37,6 +37,7 @@ import remoteDesktopService from '../services/remoteDesktop.service';
 import { getQualityPercent, DEFAULT_REMOTE_RESOLUTION, REMOTE_KEY_COMBOS } from '../constants/remoteDesktop';
 import type { RemoteShortcutId } from '../constants/remoteDesktop';
 import { downloadCanvasImage } from '../utils/canvas';
+import { downloadBlob } from '../utils/download';
 import { toErrorMessage } from '../utils/error';
 import type { Device } from '../types/device.types';
 import { useTranslation } from '../hooks/useTranslation';
@@ -171,9 +172,12 @@ export default function DeviceDetail() {
   const [remoteFps, setRemoteFps] = useState(15);
   const [remoteShowSettings, setRemoteShowSettings] = useState(false);
   const [remoteFullscreen, setRemoteFullscreen] = useState(false);
+  const [remoteRecording, setRemoteRecording] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastMouseMoveRef = useRef(0);
   const remoteSessionRef = useRef<RemoteDesktopSession | null>(null);
+  const recordingRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   const [terminalState, setTerminalState] = useState<TerminalState>({
     shell: 'powershell',
     command: '',
@@ -231,6 +235,9 @@ export default function DeviceDetail() {
       const active = remoteSessionRef.current;
       if (active && deviceId) {
         remoteDesktopService.stopSession(deviceId, active.sessionId).catch(() => undefined);
+      }
+      if (recordingRef.current) {
+        recordingRef.current.stop();
       }
     };
   }, [deviceId]);
@@ -374,6 +381,54 @@ export default function DeviceDetail() {
     }
   }, []);
 
+  const handleRemoteToggleRecording = useCallback(async () => {
+    if (remoteRecording) {
+      if (recordingRef.current) {
+        recordingRef.current.stop();
+      }
+      return;
+    }
+    if (!canvasRef.current || !remoteControl.session) {
+      setRemoteControl((prev) => ({
+        ...prev,
+        error: t('deviceDetail.remoteDesktop.recordingError'),
+      }));
+      return;
+    }
+    try {
+      const stream = canvasRef.current.captureStream(Math.max(1, remoteFps));
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        recordingChunksRef.current = [];
+        if (blob.size > 0) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `remote-desktop-${device?.hostname ?? deviceId}-${timestamp}.webm`;
+          downloadBlob(blob, filename);
+        }
+        recordingRef.current = null;
+        setRemoteRecording(false);
+      };
+      recorder.start();
+      recordingRef.current = recorder;
+      setRemoteRecording(true);
+    } catch (error) {
+      recordingRef.current = null;
+      recordingChunksRef.current = [];
+      setRemoteRecording(false);
+      setRemoteControl((prev) => ({
+        ...prev,
+        error: toErrorMessage(error, t('deviceDetail.remoteDesktop.recordingError')),
+      }));
+    }
+  }, [remoteRecording, remoteControl.session, remoteFps, device?.hostname, deviceId, t]);
+
   const handleRemoteConnect = useCallback(async () => {
     if (!deviceId || remoteControl.busy) return;
     setRemoteControl((prev) => ({ ...prev, busy: true, error: undefined }));
@@ -409,6 +464,10 @@ export default function DeviceDetail() {
         document.exitFullscreen().catch(() => undefined);
       }
       setRemoteShowSettings(false);
+      if (recordingRef.current) {
+        recordingRef.current.stop();
+      }
+      setRemoteRecording(false);
       setRemoteControl({ busy: false, session: null, error: undefined });
     } catch (error) {
       setRemoteControl((prev) => ({
@@ -1295,12 +1354,14 @@ export default function DeviceDetail() {
             quality={remoteQuality}
             fps={remoteFps}
             showSettings={remoteShowSettings}
+            isRecording={remoteRecording}
             isFullscreen={remoteFullscreen}
             onQualityChange={handleRemoteQualityChange}
             onFpsChange={handleRemoteFpsChange}
             onConnect={handleRemoteConnect}
             onDisconnect={handleRemoteDisconnect}
             onToggleSettings={handleRemoteToggleSettings}
+            onToggleRecording={handleRemoteToggleRecording}
             onToggleFullscreen={handleRemoteToggleFullscreen}
             onOpenWorkspace={handleOpenRemoteWorkspace}
             onMouseMove={handleRemoteMouseMove}
@@ -1386,3 +1447,50 @@ export default function DeviceDetail() {
     </div>
   );
 }
+  const handleRemoteToggleRecording = useCallback(async () => {
+    if (remoteRecording) {
+      if (recordingRef.current) {
+        recordingRef.current.stop();
+      }
+      return;
+    }
+    if (!canvasRef.current || !remoteControl.session) {
+      setRemoteControl((prev) => ({
+        ...prev,
+        error: t('deviceDetail.remoteDesktop.recordingError'),
+      }));
+      return;
+    }
+    try {
+      const stream = canvasRef.current.captureStream(Math.max(1, remoteFps));
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        recordingChunksRef.current = [];
+        if (blob.size > 0) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `remote-desktop-${device?.hostname ?? deviceId}-${timestamp}.webm`;
+          downloadBlob(blob, filename);
+        }
+        recordingRef.current = null;
+        setRemoteRecording(false);
+      };
+      recorder.start();
+      recordingRef.current = recorder;
+      setRemoteRecording(true);
+    } catch (error) {
+      recordingRef.current = null;
+      recordingChunksRef.current = [];
+      setRemoteRecording(false);
+      setRemoteControl((prev) => ({
+        ...prev,
+        error: toErrorMessage(error, t('deviceDetail.remoteDesktop.recordingError')),
+      }));
+    }
+  }, [remoteRecording, remoteControl.session, remoteFps, device?.hostname, deviceId, t]);

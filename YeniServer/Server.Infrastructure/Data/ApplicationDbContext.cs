@@ -27,6 +27,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<DeviceInventory> DeviceInventories => Set<DeviceInventory>();
     public DbSet<InstalledSoftware> InstalledSoftware => Set<InstalledSoftware>();
     public DbSet<InstalledPatch> InstalledPatches => Set<InstalledPatch>();
+    public DbSet<PendingAction> PendingActions => Set<PendingAction>();
+    public DbSet<AgentHistory> AgentHistories => Set<AgentHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -209,6 +211,36 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(p => p.Device)
                 .WithMany()
                 .HasForeignKey(p => p.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PendingAction configuration
+        modelBuilder.Entity<PendingAction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.DeviceId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.ActionType).HasConversion<string>();
+            entity.Property(e => e.Status).HasConversion<string>();
+            
+            entity.HasOne(p => p.Device)
+                .WithMany()
+                .HasForeignKey(p => p.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AgentHistory configuration
+        modelBuilder.Entity<AgentHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.DeviceId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.Type).HasConversion<string>();
+            
+            entity.HasOne(h => h.Device)
+                .WithMany()
+                .HasForeignKey(h => h.DeviceId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

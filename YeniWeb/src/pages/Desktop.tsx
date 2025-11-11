@@ -12,12 +12,14 @@ import {
   Settings,
   Video,
   Send,
+  Square,
 } from 'lucide-react';
 import remoteDesktopService from '../services/remoteDesktop.service';
 import { remoteOpsService } from '../services/remoteOps.service';
 import { DEFAULT_REMOTE_RESOLUTION, getQualityPercent, REMOTE_QUALITY_MAP, REMOTE_KEY_COMBOS } from '../constants/remoteDesktop';
 import type { RemoteShortcutId } from '../constants/remoteDesktop';
 import { downloadCanvasImage } from '../utils/canvas';
+import { downloadBlob } from '../utils/download';
 import type { RemoteDesktopSession, QualityLevel, RemoteClipboardState } from './device-detail/types';
 import { useTranslation } from '../hooks/useTranslation';
 import { toErrorMessage } from '../utils/error';
@@ -37,6 +39,7 @@ export default function Desktop() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [clipboard, setClipboard] = useState<RemoteClipboardState>({
     value: '',
     loading: false,
@@ -50,11 +53,17 @@ export default function Desktop() {
     sessionRef.current = session;
   }, [session]);
 
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+
   useEffect(() => {
     return () => {
       const active = sessionRef.current;
       if (active && deviceId) {
         remoteDesktopService.stopSession(deviceId, active.sessionId).catch(() => undefined);
+      }
+      if (recorderRef.current) {
+        recorderRef.current.stop();
       }
     };
   }, [deviceId]);
@@ -157,6 +166,10 @@ export default function Desktop() {
         await document.exitFullscreen().catch(() => undefined);
       }
       setSession(null);
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+      }
+      setIsRecording(false);
       setShowSettings(false);
     } catch (err) {
       setError(toErrorMessage(err, t('desktop.errorStop')));
@@ -302,6 +315,44 @@ export default function Desktop() {
     },
     [deviceId, t],
   );
+
+  const handleRecordingToggle = useCallback(async () => {
+    if (isRecording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (!canvasRef.current || !session) {
+      setError(t('deviceDetail.remoteDesktop.recordingError'));
+      return;
+    }
+    try {
+      const stream = canvasRef.current.captureStream(Math.max(1, fps));
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        recordingChunksRef.current = [];
+        if (blob.size > 0) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const filename = `remote-desktop-${id ?? 'device'}-${timestamp}.webm`;
+          downloadBlob(blob, filename);
+        }
+        recorderRef.current = null;
+        setIsRecording(false);
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) {
+      recorderRef.current = null;
+      recordingChunksRef.current = [];
+      setIsRecording(false);
+      setError(toErrorMessage(err, t('deviceDetail.remoteDesktop.recordingError')));
+    }
+  }, [isRecording, session, fps, id, t]);
 
   return (
     <div className="space-y-6 p-6">
@@ -491,12 +542,6 @@ export default function Desktop() {
             <p className="text-xs text-muted-foreground">{t('deviceDetail.remoteDesktop.shortcutsDescription')}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            <button
-              onClick={() => handleShortcut('ctrlAltDel')}
-              className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary/60"
-            >
-              {t('deviceDetail.remoteDesktop.shortcutCtrlAltDel')}
-            </button>
             <button
               onClick={() => handleShortcut('ctrlEsc')}
               className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary/60"
